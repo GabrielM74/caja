@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Caja Aquí Fue</title>
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Caja Aquí Fue">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  #caja{position:fixed;inset:0;width:100%;height:100%;border:0;background:#FFF7F3}
+  #carga{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#000;color:#fff;font:600 15px system-ui,sans-serif;transition:opacity .3s}
+  #carga img{width:min(70vw,320px)}
+  #carga.fuera{opacity:0;pointer-events:none}
+  #sinred{display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));background:#A3141E;color:#fff;padding:12px 14px;border-radius:12px;font:600 14px system-ui,sans-serif;text-align:center}
+</style>
+</head>
+<body>
+<iframe id="caja" title="Caja Aquí Fue" allow="autoplay; clipboard-write"></iframe>
+<div id="carga"><img src="logo.png" alt="Aquí Fue"><div>Abriendo la caja…</div></div>
+<div id="sinred">Sin internet. La caja necesita conexión para guardar.</div>
+<script>
+/* ===== Cambia SOLO esta línea si algún día cambia el enlace de la caja ===== */
+const CAJA_URL = "https://script.google.com/macros/s/AKfycbyCmTTYYFLHiOb3_zjHVaS1qlRZKSyzThuxZZuJxfFIlm4VVb6VXPtpal1Nb6CCHhlI/exec";
+/* ========================================================================== */
+
+const KEY = "aquifue_sesion", SKEY = "aquifue_sonido_app";
+const okOrigin = o => /^https:\/\/[a-z0-9-]+(\.script)?\.googleusercontent\.com$/i.test(o) || o === "https://script.google.com";
+const get = k => { try { return localStorage.getItem(k) } catch (e) { return null } };
+const set = (k, v) => { try { localStorage.setItem(k, v) } catch (e) {} };
+const del = k => { try { localStorage.removeItem(k) } catch (e) {} };
+
+const frame = document.getElementById("caja");
+frame.src = CAJA_URL;
+frame.addEventListener("load", () => setTimeout(() => document.getElementById("carga").classList.add("fuera"), 600));
+setTimeout(() => document.getElementById("carga").classList.add("fuera"), 8000);
+
+/* ---- sonido y vibración (lo toca la app, así Android/iPhone no lo bloquean) ---- */
+let ctx = null, propio = null;
+function unlock() {
+  try { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === "suspended") ctx.resume(); } catch (e) {}
+  if (propio && !propio._ok) { propio.muted = true; propio.play().then(() => { propio.pause(); propio.currentTime = 0; propio.muted = false; propio._ok = true }).catch(() => { propio.muted = false }) }
+}
+["pointerdown", "touchstart", "keydown"].forEach(ev => window.addEventListener(ev, unlock, { passive: true }));
+window.addEventListener("blur", () => setTimeout(unlock, 0)); // toques dentro de la caja
+const TONOS = {
+  suave: { w: "sine", n: [[880, .16], [1175, .16]], gap: .02 },
+  fuerte: { w: "square", n: [[988, .18], [1319, .18], [988, .18], [1319, .28]], gap: .04 },
+  alarma: { w: "sawtooth", n: [[700, .25], [1100, .25], [700, .25], [1100, .25], [700, .25], [1100, .4]], gap: .03 }
+};
+function cargarPropio(c) {
+  try {
+    const bin = atob(c.b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    propio = new Audio(URL.createObjectURL(new Blob([u], { type: c.mime || "audio/mpeg" }))); propio._v = c.v;
+  } catch (e) { propio = null }
+}
+try { const c = JSON.parse(get(SKEY) || "null"); if (c) cargarPropio(c) } catch (e) {}
+function sonar(tono, vol) {
+  const v = Math.max(.05, Math.min(1, (vol ?? 90) / 100));
+  try { navigator.vibrate && navigator.vibrate([250, 120, 250, 120, 400]) } catch (e) {}
+  if (tono === "propio" && propio) { try { propio.volume = v; propio.currentTime = 0; propio.play().catch(() => {}); return } catch (e) {} }
+  try {
+    unlock(); const T = TONOS[tono] || TONOS.fuerte, comp = ctx.createDynamicsCompressor(); comp.connect(ctx.destination); let t = ctx.currentTime + .02;
+    T.n.forEach(([f, d]) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = T.w; o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .02); g.gain.setValueAtTime(v, t + d - .03); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      o.connect(g).connect(comp); o.start(t); o.stop(t + d + .01); t += d + T.gap });
+  } catch (e) {}
+}
+
+/* ---- mensajes con la caja ---- */
+window.addEventListener("message", e => {
+  if (!okOrigin(e.origin)) return;
+  const d = e.data || {};
+  const responder = extra => { try { e.source.postMessage(Object.assign({ t: "aquifue-app" }, extra), e.origin) } catch (x) {} };
+  if (d.t === "aquifue-hola") responder({ token: get(KEY) || null });
+  else if (d.t === "aquifue-guardar" && d.token) set(KEY, d.token);
+  else if (d.t === "aquifue-olvidar") del(KEY);
+  else if (d.t === "aquifue-sonar") {
+    if (d.sonido && d.sonido.b64 && (!propio || propio._v !== d.sonido.v)) { cargarPropio(d.sonido); set(SKEY, JSON.stringify(d.sonido)) }
+    sonar(d.tono, d.vol);
+  }
+});
+
+/* ---- pantalla encendida mientras la app está abierta (si el celular lo permite) ---- */
+let lock = null;
+async function despierto() { try { if ("wakeLock" in navigator && document.visibilityState === "visible") lock = await navigator.wakeLock.request("screen") } catch (e) {} }
+document.addEventListener("visibilitychange", despierto); despierto();
+
+const aviso = document.getElementById("sinred");
+const red = () => aviso.style.display = navigator.onLine ? "none" : "block";
+window.addEventListener("online", red); window.addEventListener("offline", red); red();
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
