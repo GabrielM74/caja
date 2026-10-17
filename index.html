@@ -12,8 +12,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script>
-/* ===== Si algún día cambia el enlace de la caja (el que termina en /exec), cámbialo SOLO aquí ===== */
-window.CAJA_API = "https://script.google.com/macros/s/AKfycbyCmTTYYFLHiOb3_zjHVaS1qlRZKSyzThuxZZuJxfFIlm4VVb6VXPtpal1Nb6CCHhlI/exec";
+window.CAJA_API = "https://script.google.com/macros/s/AKfycbxUsQw8JInjMy06E_go8t4RW0_2YomGDVRhVwokExbFFnCH74xa4cGWsI3Z1swsktJ2/exec";
 </script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -260,7 +259,7 @@ td.r,th.r{text-align:right}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 "use strict";
-/* ---------- utilidades ---------- */
+
 const $=(s,e=document)=>e.querySelector(s), $$=(s,e=document)=>[...e.querySelectorAll(s)];
 const esc=s=>(s??"").toString().replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"$ "+Math.round(+n||0).toLocaleString("es-CO");
@@ -300,7 +299,7 @@ const ICON={
  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></svg>'
 };
 
-/* ---------- estado ---------- */
+
 const DEFAULT_CFG={workers:[{id:"dom",rol:"Domiciliario",base:0,sumaDom:true},{id:"aux",rol:"Auxiliar de cocina",base:0,sumaDom:false}],domValores:[],gastoCats:["Arriendo","Servicios","Gas","Transporte","Mantenimiento","Publicidad","Otros"],corte:4,cajaBase:0,salsas:[],sonido:true,mesas:6,frenarStock:true,negocio:{nombre:"Aquí Fue",nit:"",dir:"",tel:"",pie:"¡Gracias por tu compra!"},papel:58,ofrecerImprimir:true};
 const S={db:null,noDb:false,loaded:{cfg:0,prod:0,ins:0,days:0},cfg:null,products:[],insumos:[],days:{},
   view:"vender",date:null,dateManual:false,cart:[],cat:"Todos",q:"",pay:"efectivo",mix:{efectivo:"",nequi:"",transferencia:""},recibido:"",dom:"",override:"",nota:"",cliente:"",tipo:"local",mesa:"",dir:"",tel:"",cartCompras:[],ackShort:[],openO:{},fold:{},cartOpen:false,
@@ -309,7 +308,7 @@ const cfg=()=>({...DEFAULT_CFG,...(S.cfg||{})});
 const prod=id=>S.products.find(p=>p.id===id), ins=id=>S.insumos.find(i=>i.id===id);
 const ready=()=>S.loaded.cfg&&S.loaded.prod&&S.loaded.ins&&S.loaded.days;
 
-/* ---------- guardado (Google Sheets) ---------- */
+
 const TK="aquifue_token";
 const dayExists={};let wq=Promise.resolve(),refreshing=false,writeSeq=0;
 function api(fn,...args){
@@ -332,7 +331,7 @@ async function refresh(){if(!S.token)return;if(refreshing||S.saving){S.needRefre
   catch(e){if(!ready()&&S.token)$("#view").innerHTML=`<div class="card stack"><h2>No se pudo conectar con la hoja</h2><p class="muted">${esc((e&&e.message)||e)}</p><button class="btn" data-a="retry">Reintentar</button></div>`}
   refreshing=false;if(S.needRefresh&&!S.saving){S.needRefresh=false;refresh()}}
 
-/* ---------- cálculos ---------- */
+
 function workersFor(date){const d=S.days[date]||{},ov=d.workers||{};
   const list=cfg().workers.map(w=>({...w,nombre:"",trabajo:true,pago:"efectivo",...(ov[w.id]||{})}));
   Object.keys(ov).forEach(id=>{if(ov[id]&&ov[id].rol&&!list.find(w=>w.id===id))list.push({id,...ov[id]})});return list}
@@ -386,7 +385,7 @@ function presOf(i){return i&&i.pres&&+i.pres.q>0&&i.pres.n?i.pres:null}
 function unitsFor(i){const u=[...(UNIT[i?.unit]||["unidad"])];const p=presOf(i);if(p)u.push(p.n);return u}
 function factor(i,u){const p=presOf(i);return p&&u===p.n?+p.q:(FACT[u]||1)}
 function fmtP(n,i){const p=presOf(i);return fmtQ(n,i?.unit)+(p?` · ${trimN(n/p.q)} ${p.n}`:"")}
-/* ---------- render ---------- */
+
 const TABS=[["vender","Vender","vender"],["pedidos","Pedidos","bell"],["caja","Caja del día","caja"],["inventario","Inventario","inv"],["historial","Historial","hist"],["catalogo","Catálogo","cat"]];
 function render(){
   if(!S.date)S.date=workDate();
@@ -407,7 +406,7 @@ function render(){
   if(aid){const el=document.getElementById(aid);if(el){el.focus();if(sel)try{el.setSelectionRange(sel[0],sel[1])}catch(e){}}}
 }
 
-/* --- Vender --- */
+
 function cartTotals(){const sub=S.cart.reduce((a,l)=>a+l.price*l.qty,0);const total=S.override!==""?num(S.override):sub;const dom=S.tipo==="domicilio"?num(S.dom):0;return{sub,total,dom,cobrar:total+dom}}
 function vVender(){
   const act=S.products.filter(p=>p.activo!==false);
@@ -460,7 +459,7 @@ function vVender(){
   ${S.cart.length&&!S.cartOpen?`<button class="btn cartbar" data-a="cartOpen"><span>Pedido · ${n} ${n===1?"producto":"productos"}</span><b class="num">${money(T.cobrar)}</b></button>`:""}`;
 }
 
-/* --- Caja del día --- */
+
 function vCaja(){
   const c=calcDay(S.date);const d=c.d;const closed=!!d.closed;
   const sold=soldOn([S.date]);
@@ -521,7 +520,7 @@ function vCaja(){
   </div>`;
 }
 
-/* --- Inventario --- */
+
 function vInv(){
   const st=Object.values(stockAll()).filter(s=>s.activo!==false).sort((a,b)=>a.name.localeCompare(b.name,"es"));
   const low=st.filter(s=>s.actual<=(+s.min||0)&&(+s.min>0||s.actual<=0));
@@ -541,7 +540,7 @@ function vInv(){
   :`<div class="empty">Cada semana cuenta lo que queda de los insumos importantes. Si lo contado es mucho menor que el sistema, hay porciones grandes, desperdicio o faltantes.</div>`)}</div>`;
 }
 
-/* --- Historial --- */
+
 function vHist(){
   const keys=Object.keys(S.days).sort();const months=[...new Set(keys.map(k=>k.slice(0,7)))].reverse();
   if(!months.length)return `<div class="empty">Aún no hay días registrados.</div>`;
@@ -566,7 +565,7 @@ function vHist(){
    <section class="card stack"><h3>Lo más vendido del mes</h3>${top.length?`<div class="tbl"><table><tbody>${top.map(t=>`<tr><td>${esc(t.name)}</td><td class="r">${trimN(t.qty)}</td><td class="r">${money(t.total)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">Sin ventas este mes.</div>`}</section></div></div>`;
 }
 
-/* --- Catálogo --- */
+
 function vCat(){
   const t=S.catTab;
   let body;
@@ -580,7 +579,7 @@ function vCat(){
   <p class="small muted">Los nombres solo se escriben aquí. En las ventas y compras se escogen de la lista, así nunca quedan mal escritos.</p>${body}</div>`;
 }
 
-/* --- Ajustes --- */
+
 function vAjustes(){const c=cfg();
   return `<div class="stack"><h2>Ajustes</h2>
   <section class="card stack"><h3>Trabajadores y pagos</h3><p class="small muted">La base se paga cada turno. Si marcas “Suma domicilios”, a ese trabajador se le suma lo que se cobró en domicilios ese día. Todo se descuenta del balance.</p>
@@ -600,7 +599,7 @@ function vAjustes(){const c=cfg();
    <div class="row"><label class="row"><input type="checkbox" id="sonidoCfg" ${c.sonido!==false?"checked":""}> Sonar cuando llega un pedido desde otro dispositivo</label><button class="btn ghost" data-a="sonidoTest">Probar sonido</button></div>
    <div class="stack" style="gap:6px"><span class="label">Sonido propio</span>
    ${IS_GAS?`<div class="row">${S.sonidoMeta?`<span class="chip y">♪ ${esc(S.sonidoMeta.nombre)}</span><button class="btn ghost" data-a="quitarSonido">Quitar</button>`:`<span class="small muted">Ninguno subido</span>`}
-     <label class="btn sec" for="sonidoFile">${S.sonidoMeta?"Cambiar sonido":"Subir sonido"}</label><input type="file" id="sonidoFile" accept="audio/*" hidden></div>
+     <label class="btn sec" for="sonidoFile">${S.sonidoMeta?"Cambiar sonido":"Subir sonido"}</label><input type="file" id="sonidoFile" accept=".mp3,.m4a,.wav,.ogg,.aac,audio/mpeg,audio/mp4,audio/wav,audio/ogg" hidden></div>
    <p class="small muted">MP3, M4A, WAV u OGG de máximo 1 MB (unos segundos). Queda guardado en tu Drive y suena en todos los dispositivos. Después elige "Sonido propio" arriba y guarda.</p>`
    :`<p class="small muted">Subir un sonido propio funciona en la versión de Google.</p>`}</div>
    <p class="small muted">El volumen máximo también depende del volumen del celular o del PC. El sonido solo suena con la página abierta en pantalla.</p></section>
@@ -625,7 +624,7 @@ function vAjustes(){const c=cfg();
    <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section>
   </div>`}
 
-/* --- Pedidos pendientes --- */
+
 function ago(ts){const m=Math.max(0,Math.round((Date.now()-ts)/60000));return m<1?"recién":m<60?`hace ${m} min`:`hace ${Math.floor(m/60)} h ${m%60} min`}
 function orderGroups(){const all=[];Object.entries(S.days).forEach(([k,d])=>vals(d.sales).forEach(s=>all.push({...s,date:k})));all.sort((a,b)=>(a.ts||0)-(b.ts||0));
   return{prep:all.filter(s=>s.estado==="pendiente"),llevar:all.filter(s=>s.estado==="llevar"),cobrar:all.filter(s=>s.estado==="listo"&&!isPaid(s)),
@@ -769,7 +768,7 @@ function checkNewOrders(){if(!ready())return;const ids=pendientes().map(o=>o.id)
  if(nuevos.length){if(cfg().sonido!==false)beep();toast(nuevos.length===1?`Nuevo pedido #${nuevos[0].num||""}`:`${nuevos.length} pedidos nuevos`)}}
 setInterval(()=>{if(S.view==="pedidos"&&$("#modal").hidden)render()},30000);
 
-/* ---------- modales ---------- */
+
 let modalCleanup=null;
 function openModal(title,html,mount){$("#sheet").innerHTML=`<header><h2>${esc(title)}</h2><button class="iconbtn" data-a="closeModal" aria-label="Cerrar">✕</button></header>${html}`;$("#modal").hidden=false;modalCleanup=mount?mount($("#sheet")):null;const f=$("#sheet input:not([type=hidden]),#sheet select");if(f&&matchMedia("(min-width:700px)").matches)f.focus()}
 function closeModal(){$("#modal").hidden=true;$("#sheet").innerHTML="";modalCleanup=null}
@@ -947,12 +946,12 @@ function mInsumo(id){const back=!$("#modal").hidden&&$("#c_i");const i=id?clone(
   i.empaque=$("#i_emp",s).checked;Object.assign(i,{name,unit:$("#i_u",s).value,stockIni:num($("#i_s",s).value),min:num($("#i_m",s).value),activo:$("#i_a",s).checked,upd:Date.now()});const pn=$("#i_pn",s).value.trim(),pq=num($("#i_pq",s).value);i.pres=pn&&pq>0?{n:pn,q:pq}:null;i.controla=$("#i_ctl",s).checked;
   if(isNew)S.insumos.push(i);else S.insumos=S.insumos.map(x=>x.id===i.id?i:x);saveCatalog("ins");closeModal();toast("Insumo guardado");if(back)mCompra()}})}
 
-/* ---------- clave de acceso (se valida en el servidor) ---------- */
+
 const LS={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 const SS={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,v)}catch(e){}},del(k){try{sessionStorage.removeItem(k)}catch(e){}}};
 let lastAct=Date.now();["pointerdown","keydown","touchstart"].forEach(ev=>document.addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
 setInterval(()=>{const m=+cfg().autoLock||0;if(m>0&&S.token&&!S.recordado&&Date.now()-lastAct>m*60000){S.token=null;SS.del(TK);closeModal();showLock();toast("Caja bloqueada por inactividad")}},30000);
-/* ---- dentro de la app (GitHub Pages): la app guarda la sesión si la persona lo pide ---- */
+
 const APP={dentro:false,origin:null,src:null,ready:null};
 const appOk=o=>/^https:\/\/[a-z0-9-]+\.github\.io$/i.test(o||"");
 if(window.CAJA_API){APP.dentro=true;const tk=LS.get("aquifue_sesion");if(tk){S.token=tk;S.recordado=true}}
@@ -962,7 +961,7 @@ APP.ready=window.CAJA_API?Promise.resolve(true):new Promise(res=>{let done=false
 function appSend(msg){if(window.CAJA_API){if(msg.t==="aquifue-guardar")LS.set("aquifue_sesion",msg.token);else if(msg.t==="aquifue-olvidar")LS.del("aquifue_sesion");return}try{if(APP.src&&APP.origin)APP.src.postMessage(msg,APP.origin)}catch(e){}}
 if(window.CAJA_API){let wl=null;const awake=async()=>{try{if("wakeLock" in navigator&&document.visibilityState==="visible")wl=await navigator.wakeLock.request("screen")}catch(e){}};document.addEventListener("visibilitychange",awake);awake();
  if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})}
-const errMsg=e=>{const m=(e&&e.message)||String(e||"");return m.replace(/^Error:\s*/,"").replace(/^Exception:\s*/,"")};
+const errMsg=e=>{const m=(e&&e.message)||String(e||"");return m.replace(/^Error:\s{0,}/,"").replace(/^Exception:\s{0,}/,"")};
 function showLock(){const box=$("#lock");const create=!S.hasLock;if(!box.hidden&&$("#lk_p"))return;
  box.innerHTML=`<form class="lockbox" id="lkf"><img src="${$(".logo").src}" alt="Aquí Fue"><h2>Caja Aquí Fue</h2>${create?`<p class="small muted">Primera vez: crea el usuario y la clave con los que entrarán todos en el negocio.</p>`:""}
  <label class="f" style="text-align:left"><span class="label">Usuario</span><input id="lk_u" value="${esc(S.lockUser||(create?"aquifue":""))}" autocomplete="username" required></label>
@@ -982,7 +981,7 @@ function mSetLock(){openModal("Cambiar clave",`<form class="stack" id="fm"><labe
  $("#fm",s).onsubmit=async e=>{e.preventDefault();if($("#k_new",s).value!==$("#k_rep",s).value)return $("#k_e",s).textContent="Las dos claves no coinciden.";
   try{const t=await call("cambiarClave",$("#k_old",s).value,$("#k_u",s).value.trim(),$("#k_new",s).value);S.token=t;SS.set(TK,t);S.recordado=false;appSend({t:"aquifue-olvidar"});S.lockUser=$("#k_u",s).value.trim();closeModal();toast("Clave cambiada")}catch(err){$("#k_e",s).textContent=errMsg(err)}}})}
 
-/* ---------- Excel: exportar e importar ---------- */
+
 function buildWorkbook(){const X=XLSX,wb=X.utils.book_new();const add=(name,rows,head)=>{const ws=head?X.utils.json_to_sheet(rows,{header:head}):X.utils.aoa_to_sheet(rows);X.utils.book_append_sheet(wb,ws,name)};
  const keys=Object.keys(S.days).sort();const pn=id=>prod(id)?.name,iname=id=>ins(id)?.name;
  add("Léeme",[["Copia de seguridad · Caja Aquí Fue"],["Descargada",new Date().toLocaleString("es-CO",{timeZone:"America/Bogota"})],[""],["Para restaurar: en la página ve a Ajustes → Cargar copia desde Excel y escoge este archivo."],["La hoja _respaldo guarda todo exacto. No la edites ni la borres."],["Puedes editar las hojas Productos, Insumos y Recetas: cambia precios, agrega filas nuevas dejando el ID vacío. Al cargar el archivo se actualiza el catálogo."],["Cargar la misma copia varias veces no duplica ventas, compras ni gastos."]]);
@@ -1046,7 +1045,7 @@ async function applyImport(b,replace){$("#sheet").innerHTML=`<div class="empty">
  try{await enqueue("w",()=>call("importar",JSON.stringify(payload),!!replace));S.needRefresh=false;await refresh();closeModal();toast("Copia cargada")}
  catch(e){closeModal();toast("La carga no se completó: "+errMsg(e)+". Puedes volver a intentarlo con el mismo archivo.",true)}}
 
-/* ---------- eventos ---------- */
+
 document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t)return;if(t===$("#modal"))return;const a=t.dataset.a,v=t.dataset.v,id=t.dataset.id,i=+t.dataset.i;
  switch(a){
   case "tab":S.view=v;S.cartOpen=false;closeModal();render();window.scrollTo(0,0);break;
@@ -1144,7 +1143,7 @@ function sell(force){if(bloqueado())return;const T=cartTotals();let pagos;
  S.cart=[];S.dom=S.override=S.recibido=S.nota=S.cliente=S.mesa=S.dir=S.tel="";S.tipo="local";S.cartCompras=[];S.ackShort=[];S.mix={efectivo:"",nequi:"",transferencia:""};S.cartOpen=false;S.q="";
  dayUpdate(S.date,{sales:{[id]:sale}}).then(()=>{},()=>{});const fecha=S.date;toast(`Pedido #${numero} registrado · ${S.pay==="despues"?"sin pagar":money(T.cobrar)}`);S.pay="efectivo";render();if(cfg().ofrecerImprimir!==false&&CAN_PRINT)mPrint(fecha,id,`Pedido #${numero} registrado`)}
 
-/* ---------- conexión ---------- */
+
 (async()=>{render();
  try{const st=await api("estado");S.hasLock=st.tieneClave;S.lockUser=st.usuario}
  catch(e){$("#view").innerHTML=`<div class="card stack"><h2>No se pudo abrir la caja</h2><p class="muted">${esc(errMsg(e))}</p><button class="btn" data-a="reload">Reintentar</button></div>`;return}
