@@ -71,7 +71,7 @@ h2{font-size:1.25rem} h3{font-size:1.02rem}
     padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -6px 20px rgba(60,20,20,.06)}
   .navbar .wrap{padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px))}
   .nav{justify-content:space-around}
-  .nav button{flex-direction:column;gap:2px;font-size:.68rem;padding:8px 4px;flex:1;border-radius:10px}
+  .nav button{flex-direction:column;gap:2px;font-size:min(.68rem,3vw);padding:8px 1px;flex:1 1 0;min-width:0;border-radius:10px;line-height:1.15;white-space:normal;word-break:normal;overflow:hidden;text-align:center}
   main{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   .logo{height:38px}
 }
@@ -641,7 +641,7 @@ function vAjustes(){const c=cfg();
    <div class="row"><button class="btn sec" data-a="export">${ICON.down} Descargar Excel</button><label class="btn sec" for="importFile">Cargar copia desde Excel</label><input type="file" id="importFile" accept=".xlsx,.xls" hidden></div></section>
   <section class="card stack"><h3>Clave de acceso</h3><p class="small muted">Usuario: <b>${esc(S.lockUser||"")}</b>. La clave la revisa el servidor. Se pide otra vez cada vez que se cierra la pestaña o el navegador${APP.dentro?". En la app puedes marcar \"Mantener sesión iniciada\" al entrar (dura 6 meses o hasta cambiar la clave)":""}.</p>
    <label class="f" style="max-width:320px"><span class="label">Bloquear sin uso después de</span><select id="autoLockCfg">${[[0,"No bloquear"],[5,"5 minutos"],[15,"15 minutos"],[30,"30 minutos"],[60,"1 hora"]].map(([v,l])=>`<option value="${v}" ${(+cfg().autoLock||0)===v?"selected":""}>${l}</option>`).join("")}</select></label>
-   <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section><p class="small muted" style="text-align:center">Versión de la caja: 17-oct-2026 · 3:00 pm</p>
+   <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section><p class="small muted" style="text-align:center">Versión de la caja: 17-oct-2026 · 3:15 pm</p>
   </div>`}
 
 
