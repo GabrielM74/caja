@@ -37,6 +37,7 @@ body{font-family:var(--f-body);font-size:15px;line-height:1.45;
   background-image:radial-gradient(var(--mustard-soft) 1.6px, transparent 1.7px);background-size:26px 26px;min-height:100vh}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
+button,a,label,input,select{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 :focus-visible{outline:3px solid var(--mustard);outline-offset:2px}
 .wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .num{font-variant-numeric:tabular-nums}
@@ -72,7 +73,8 @@ h2{font-size:1.25rem} h3{font-size:1.02rem}
   .navbar .wrap{padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px))}
   .nav{justify-content:space-around}
   .nav button{flex-direction:column;gap:2px;font-size:min(.68rem,3vw);padding:8px 1px;flex:1 1 0;min-width:0;border-radius:10px;line-height:1.15;white-space:normal;word-break:normal;overflow:hidden;text-align:center}
-  main{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+  main#view{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+  main#view:has(.cartbar){padding-bottom:calc(180px + env(safe-area-inset-bottom,0px))}
   .logo{height:38px}
 }
 main{padding-block:18px}
@@ -100,9 +102,9 @@ main{padding-block:18px}
 .btn.big{padding:14px 18px;font-size:1.05rem;width:100%}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
 .list{display:flex;flex-direction:column}
-.li{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px dashed var(--line)}
+.li{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:10px 0;border-top:1px dashed var(--line)}
 .li:first-child{border-top:0}
-.li .grow{flex:1;min-width:0}
+.li .grow{flex:1 1 170px;min-width:0}
 .li .t{font-weight:700;overflow-wrap:anywhere}
 .amt{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .neg{color:var(--red-ink)} .pos{color:var(--green)}
@@ -117,6 +119,9 @@ td.r,th.r{text-align:right}
 
 /* POS */
 .posgrid{display:grid;gap:16px}
+.posgrid>*{min-width:0}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:899px){.tools{display:grid;grid-template-columns:1fr 1fr;width:100%}.tools .btn{padding:10px 8px}}
 @media (min-width:900px){.posgrid{grid-template-columns:minmax(0,1fr) 390px;align-items:start}.cart{position:sticky;top:76px}}
 .search{display:flex;gap:8px}
 .search input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:12px;padding:11px 14px;background:var(--surface)}
@@ -241,7 +246,7 @@ td.r,th.r{text-align:right}
 /* modal + toast + lock */
 .modal{position:fixed;inset:0;z-index:50;background:rgba(36,23,26,.45);display:flex;align-items:flex-end;justify-content:center}
 @media (min-width:700px){.modal{align-items:center}}
-.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92vh;max-height:92dvh;overflow:auto;overscroll-behavior:contain;border-radius:20px 20px 0 0;
   padding:18px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px))}
 @media (min-width:700px){.sheet{border-radius:20px}}
 .sheet header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
@@ -290,10 +295,12 @@ function similar(name,list,selfId){const n=norm(name);return list.filter(x=>x.id
 const UNIT={g:["g","kg"],ml:["ml","l"],unidad:["unidad"]};
 const FACT={g:1,kg:1000,ml:1,l:1000,unidad:1};
 function fmtQ(n,u){n=+n||0;if(u==="g"&&Math.abs(n)>=1000)return trimN(n/1000)+" kg";if(u==="ml"&&Math.abs(n)>=1000)return trimN(n/1000)+" L";return trimN(n)+" "+(u==="unidad"?"und":u)}
-const METODO={fuera:"Fuera de caja",efectivo:"Efectivo",nequi:"Nequi",transferencia:"Transferencia",tarjeta:"Tarjeta",mixto:"Mixto",despues:"Paga después",nopaga:"🎁 No paga","":"Sin definir"};
+const METODO={fuera:"Fuera de caja",efectivo:"Efectivo",nequi:"Bold",transferencia:"Llaves",tarjeta:"Tarjeta",mixto:"Mixto",despues:"Paga después",nopaga:"🎁 No paga","":"Sin definir"};
 const isPaid=s=>s.pagado!==false;
 const cobro=s=>(+s.total||0)+(+s.domicilio||0);
-function pagoTxt(s){if(!isPaid(s))return "Sin pagar";const p=Object.entries(s.pagos||{}).filter(([,v])=>+v>0);if(s.metodo==="mixto"||p.length>1)return "Mixto: "+p.map(([m,v])=>METODO[m]+" "+money(v)).join(" + ");return METODO[s.metodo]||"Pagado"}
+const abonado=s=>Object.values(s.pagos||{}).reduce((a,v)=>a+(+v||0),0);
+const falta=s=>isPaid(s)?0:Math.max(0,cobro(s)-abonado(s));
+function pagoTxt(s){if(!isPaid(s)){const ab=abonado(s);return ab>0?"Abonó "+money(ab)+" · falta "+money(falta(s)):"Sin pagar"}const p=Object.entries(s.pagos||{}).filter(([,v])=>+v>0);if(s.metodo==="mixto"||p.length>1)return "Mixto: "+p.map(([m,v])=>METODO[m]+" "+money(v)).join(" + ");return METODO[s.metodo]||"Pagado"}
 const SALE_M=["efectivo","nequi","transferencia"];
 const IS_GAS=!!(window.google&&window.google.script)||!!window.CAJA_API;
 const OUT_M=["efectivo","nequi","transferencia","tarjeta","fuera"];
@@ -338,11 +345,11 @@ function enqueue(k,fn){S.saving++;writeSeq++;renderSaving();const p=wq.then(fn);
 function afterWrite(v){if(typeof v!=="number")return;if(v===S.version+1)S.version=v;else S.needRefresh=true}
 function writeErr(e){const m=(e&&e.message)||"";if(/AUTH/.test(m))return toast("Tu sesión venció. Entra otra vez con la clave.",true);toast("No se pudo guardar. Revisa el internet e inténtalo de nuevo.",true);S.needRefresh=true}
 function merge(a,b){if(b===null)return null;if(typeof b!=="object"||Array.isArray(b))return clone(b);const o={...(a&&typeof a==="object"?a:{})};for(const k in b)o[k]=merge(o[k],b[k]);return o}
-function dayUpdate(date,patch){S.days[date]=merge(S.days[date]||{date},patch);render();return enqueue("w",()=>call("cambiarDia",date,JSON.stringify(patch)))}
-function saveCatalog(kind){const items=clone(kind==="prod"?S.products:S.insumos);render();return enqueue("w",()=>call("guardarCatalogo",kind,JSON.stringify(items)))}
-function saveCfg(){render();const c={...cfg()};delete c.lock;return enqueue("w",()=>call("guardarConfig",JSON.stringify(c)))}
+function dayUpdate(date,patch){S.days[date]=merge(S.days[date]||{date},patch);dirty();render();return enqueue("w",()=>call("cambiarDia",date,JSON.stringify(patch)))}
+function saveCatalog(kind){dirty();const items=clone(kind==="prod"?S.products:S.insumos);render();return enqueue("w",()=>call("guardarCatalogo",kind,JSON.stringify(items)))}
+function saveCfg(){dirty();render();const c={...cfg()};delete c.lock;return enqueue("w",()=>call("guardarConfig",JSON.stringify(c)))}
 async function refresh(){if(!S.token)return;if(refreshing||S.saving){S.needRefresh=true;return}refreshing=true;const seq=writeSeq;
-  try{const r=JSON.parse(await call("todo"));if(seq!==writeSeq||S.saving)S.needRefresh=true;else{S.cfg=r.cfg;S.products=r.products||[];S.insumos=r.insumos||[];S.days=r.days||{};S.version=r.version;Object.keys(S.days).forEach(k=>dayExists[k]=true);S.sonidoMeta=r.sonido||null;syncSonido();S.loaded={cfg:1,prod:1,ins:1,days:1};if(!S.dateManual)S.date=workDate();render();checkNewOrders()}}
+  try{const r=JSON.parse(await call("todo"));if(seq!==writeSeq||S.saving)S.needRefresh=true;else{S.cfg=r.cfg;S.products=r.products||[];S.insumos=r.insumos||[];S.days=r.days||{};dirty();S.version=r.version;Object.keys(S.days).forEach(k=>dayExists[k]=true);S.sonidoMeta=r.sonido||null;syncSonido();S.loaded={cfg:1,prod:1,ins:1,days:1};if(!S.dateManual)S.date=workDate();render();checkNewOrders()}}
   catch(e){if(!ready()&&S.token)$("#view").innerHTML=`<div class="card stack"><h2>No se pudo conectar con la hoja</h2><p class="muted">${esc((e&&e.message)||e)}</p><button class="btn" data-a="retry">Reintentar</button></div>`}
   refreshing=false;if(S.needRefresh&&!S.saving){S.needRefresh=false;refresh()}}
 
@@ -359,8 +366,9 @@ function calcDay(date){
   const d=S.days[date]||{};const todas=vals(d.sales).sort((a,b)=>(b.ts||0)-(a.ts||0));const sales=todas.filter(activa);const canceladas=todas.filter(x=>!activa(x));const gastos=vals(d.expenses).sort((a,b)=>(b.ts||0)-(a.ts||0));const compras=vals(d.purchases).sort((a,b)=>(b.ts||0)-(a.ts||0));
   const inM={efectivo:0,nequi:0,transferencia:0},outM={efectivo:0,nequi:0,transferencia:0,tarjeta:0,"":0};
   let ventas=0,dom=0,nDom=0;
-  let porCobrar=0,nPorCobrar=0;sales.forEach(s=>{if(s.noPaga)return;ventas+=+s.total||0;if(+s.domicilio>0){dom+=+s.domicilio;nDom++}if(!isPaid(s)){porCobrar+=cobro(s);nPorCobrar++;return}Object.entries(s.pagos||{}).forEach(([m,v])=>inM[m]=(inM[m]||0)+(+v||0))});
-  let tg=0;gastos.forEach(g=>{tg+=+g.valor||0;outM[g.pago||""]=(outM[g.pago||""]||0)+(+g.valor||0)});
+  let porCobrar=0,nPorCobrar=0;sales.forEach(s=>{if(s.noPaga)return;ventas+=+s.total||0;if(+s.domicilio>0){dom+=+s.domicilio;nDom++}if(!isPaid(s)){porCobrar+=falta(s);nPorCobrar++;Object.entries(s.pagos||{}).forEach(([m,v])=>inM[m]=(inM[m]||0)+(+v||0));return}Object.entries(s.pagos||{}).forEach(([m,v])=>inM[m]=(inM[m]||0)+(+v||0))});
+  const gTot=gastos.find(g=>g.tipo==="total")||null,gUnico=!!(gTot&&gTot.modo==="unico"),cuentaG=g=>!gUnico||g===gTot;
+  let tg=0;gastos.forEach(g=>{if(!cuentaG(g))return;tg+=+g.valor||0;outM[g.pago||""]=(outM[g.pago||""]||0)+(+g.valor||0)});
   let tc=0,tInv=0;compras.forEach(c=>{if(c.inversion)tInv+=+c.costo||0;else tc+=+c.costo||0;outM[c.pago||""]=(outM[c.pago||""]||0)+(+c.costo||0)});
   const workers=workersFor(date).map(w=>{const dt=w.sumaDom?dom:0;return{...w,domTotal:dt,nDom:w.sumaDom?nDom:0,total:w.trabajo?(+w.base||0)+dt:0}});
   let tw=0;workers.forEach(w=>{if(w.trabajo){tw+=w.total;outM[w.pago||"efectivo"]=(outM[w.pago||"efectivo"]||0)+w.total}});
@@ -370,7 +378,7 @@ function calcDay(date){
   const efectivoEsperado=(+cajaInicial||0)+inM.efectivo-outM.efectivo;
   const descuentos=sales.map(s=>({s,v:descDe(s)})).filter(x=>x.v>0),tDesc=descuentos.reduce((a,x)=>a+x.v,0);
   const perdidas=canceladas.filter(x=>x.estado==="perdida").reduce((a,x)=>a+(+x.total||0),0),enEspera=canceladas.filter(x=>x.estado==="espera");
-  return{d,sales,canceladas,descuentos,tDesc,perdidas,enEspera,gastos,compras,workers,ventas,dom,nDom,porCobrar,nPorCobrar,tg,tc,tInv,tw,ajustes,ajIn,ajOut,entradas,salidas,balance:entradas-salidas,inM,outM,cajaInicial,efectivoEsperado}
+  return{d,gTot,gUnico,cuentaG,sales,canceladas,descuentos,tDesc,perdidas,enEspera,gastos,compras,workers,ventas,dom,nDom,porCobrar,nPorCobrar,tg,tc,tInv,tw,ajustes,ajIn,ajOut,entradas,salidas,balance:entradas-salidas,inM,outM,cajaInicial,efectivoEsperado}
 }
 function baseHeredada(date){const k=Object.keys(S.days).filter(x=>x<date&&S.days[x]?.closed&&S.days[x]?.cierre?.baseManana!=null).sort().pop();return k?+S.days[k].cierre.baseManana:null}
 const isClosed=date=>!!S.days[date]?.closed;
@@ -380,13 +388,14 @@ const esEmpaque=i=>!!i&&(i.empaque??/empaque|bolsa|parafinado|aluminio|icopor/.t
 function expand(pid,qty,acc,depth=0,opt){const p=prod(pid);if(!p||depth>4)return;const sin=opt&&opt.sin,local=opt&&opt.local;
  (p.receta||[]).forEach(r=>{if(sin&&sin.includes(r.iid))return;if(local&&esEmpaque(ins(r.iid))&&!(opt.con||[]).includes(r.iid))return;acc[r.iid]=(acc[r.iid]||0)+(+r.qty||0)*qty});(p.incluye||[]).forEach(c=>expand(c.pid,(+c.qty||0)*qty,acc,depth+1,opt))}
 function lineOpt(it,sale){return{sin:it.sin||[],con:it.con||[],local:(sale.tipo||(+sale.domicilio>0?"domicilio":"local"))==="local"}}
-function stockAll(){const st={};S.insumos.forEach(i=>st[i.id]={...i,ini:+i.stockIni||0,comprado:0,consumido:0,ajuste:0});
+let _stk=null,_low=null;const dirty=()=>{_stk=null;_low=null};
+function stockAll(){if(_stk)return _stk;const st={};S.insumos.forEach(i=>st[i.id]={...i,ini:+i.stockIni||0,comprado:0,consumido:0,ajuste:0});
   Object.values(S.days).forEach(d=>{vals(d.purchases).forEach(c=>{if(st[c.iid])st[c.iid].comprado+=+c.qtyBase||0});const acc={};
     vals(d.sales).forEach(s=>(s.items||[]).forEach(it=>it.pid&&!it.noStock&&expand(it.pid,+it.qty||0,acc,0,lineOpt(it,s))));
     Object.entries(acc).forEach(([k,v])=>{if(st[k])st[k].consumido+=v});
     vals(d.conteos).forEach(c=>{if(st[c.iid])st[c.iid].ajuste+=(+c.real||0)-(+c.sistema||0)});
     vals(d.consumos).forEach(c=>(c.items||[]).forEach(x=>{if(st[x.iid])st[x.iid].consumido+=+x.qty||0}))});
-  Object.values(st).forEach(s=>s.actual=s.ini+s.comprado-s.consumido+s.ajuste);return st}
+  Object.values(st).forEach(s=>s.actual=s.ini+s.comprado-s.consumido+s.ajuste);_stk=st;return st}
 function soldOn(dates){const m={};dates.forEach(k=>vals(S.days[k]?.sales).filter(activa).forEach(s=>(s.items||[]).forEach(it=>{const key=it.pid||("libre:"+it.name);m[key]=m[key]||{name:it.pid?(prod(it.pid)?.name||it.name):it.name,qty:0,total:0};m[key].qty+=+it.qty||0;m[key].total+=(+it.qty||0)*(+it.price||0)})));return Object.values(m).sort((a,b)=>b.qty-a.qty)}
 
 const sinTxt=i=>(i.sin||[]).map(id=>ins(id)?.name||"").filter(Boolean).join(", ");
@@ -394,7 +403,7 @@ const itemTxt=i=>`${trimN(i.qty)}× ${i.name}${(i.salsas||[]).length?` (${i.sals
 function tipoTxt(s){const t=s.tipo||(+s.domicilio>0?"domicilio":"local");return t==="domicilio"?"Domicilio":t==="recoger"?"Para recoger":s.mesa?"Mesa "+s.mesa:"En local"}
 function quien(s){return [tipoTxt(s),s.cliente].filter(Boolean).join(" · ")}
 const congelado=()=>cfg().congelado||null;
-function lowStock(){if(congelado())return[];return Object.values(stockAll()).filter(s=>s.activo!==false&&s.actual<=(+s.min||0)&&(+s.min>0||s.actual<=0))}
+function lowStock(){if(congelado())return[];if(_low)return _low;return _low=Object.values(stockAll()).filter(s=>s.activo!==false&&s.actual<=(+s.min||0)&&(+s.min>0||s.actual<=0))}
 function shortages(lines){if(cfg().frenarStock===false||congelado())return[];const st=stockAll(),need={};lines.forEach(l=>l.pid&&expand(l.pid,+l.qty||0,need,0,{sin:l.sin||[],con:l.con||[],local:S.tipo==="local"}));
   return Object.entries(need).map(([iid,q])=>({i:ins(iid),need:q,have:st[iid]?st[iid].actual:0})).filter(x=>x.i&&x.i.activo!==false&&x.i.controla!==false&&x.have<x.need-1e-9)}
 function fold(key,title,meta,body,def=false,tag="h2"){const open=S.fold[key]??def;return `<section class="card stack fold ${open?"open":""}"><button class="fhead" data-a="fold" data-v="${key}" aria-expanded="${open}"><${tag}>${title}</${tag}>${meta||""}<span class="caret">▾</span></button>${open?body:""}</section>`}
@@ -427,7 +436,25 @@ function render(){
 
 
 function cartTotals(){const sub=S.cart.reduce((a,l)=>a+l.price*l.qty,0);const total=S.override!==""?num(S.override):sub;const dom=S.tipo==="domicilio"?num(S.dom):0;return{sub,total,dom,cobrar:total+dom}}
+const anexoSale=()=>S.anexo?S.days[S.anexo.date]?.sales?.[S.anexo.id]||null:null;
+function startAnexo(date,id){const s=S.days[date]?.sales?.[id];if(!s)return;if(isClosed(date))return toast("Ese día ya está cerrado. Reábrelo para agregar productos.",true);
+ const go=()=>{S.cart=[];S.dom=S.override=S.recibido=S.nota=S.cliente=S.mesa=S.dir=S.tel="";S.cartCompras=[];S.ackShort=[];S.mix={efectivo:"",nequi:"",transferencia:""};
+  S.anexo={date,id,num:s.num};S.tipo=s.tipo||(+s.domicilio>0?"domicilio":"local");S.pay=isPaid(s)&&!s.noPaga?"efectivo":"despues";S.view="vender";S.cartOpen=false;closeModal();render();window.scrollTo(0,0);toast(`Toca los productos y luego “Agregar al pedido #${s.num||""}”`)};
+ if(S.cart.length&&!S.anexo)ask("Tienes productos en Vender sin registrar. ¿Descartarlos para agregar al pedido #"+(s.num||"")+"?","Descartar y seguir",go,false);else go()}
+function anexarVenta(){const A=S.anexo,s=anexoSale();if(!s){S.anexo=null;render();return toast("Ese pedido ya no existe.",true)}if(isClosed(A.date))return toast("Ese día ya está cerrado. Reábrelo para agregar productos.",true);if(!S.cart.length)return;
+ const T=cartTotals();const ronda=Math.max(1,...(s.items||[]).map(i=>+i.ronda||1))+1;
+ const nuevos=S.cart.map(l=>({pid:l.pid,name:l.name,price:l.price,qty:l.qty,ronda,...(congelado()?{noStock:true}:{}),...(l.pid&&prod(l.pid)&&+prod(l.pid).price>l.price?{lista:+prod(l.pid).price}:{}),...((l.salsas||[]).length?{salsas:l.salsas}:{}),...((l.sin||[]).length?{sin:l.sin}:{}),...((l.con||[]).length&&S.tipo==="local"?{con:l.con}:{})}));
+ const patch={items:[...(s.items||[]),...nuevos],subtotal:(+(s.subtotal??s.total)||0)+T.sub,total:(+s.total||0)+T.total,anexoTs:Date.now()};
+ if(activa(s)&&s.estado!=="pendiente")patch.estado="pendiente";
+ if(S.nota.trim())patch.nota=[s.nota,S.nota.trim()].filter(Boolean).join(" · ");
+ if(S.cartCompras.length)patch.compras=[...(s.compras||[]),...S.cartCompras];
+ if(isPaid(s)&&!s.noPaga){if(S.pay==="despues"){patch.pagado=false;patch.metodo=""}else{const pg={efectivo:+(s.pagos||{}).efectivo||0,nequi:+(s.pagos||{}).nequi||0,transferencia:+(s.pagos||{}).transferencia||0};pg[S.pay]=(pg[S.pay]||0)+T.total;patch.pagos=pg;patch.metodo=SALE_M.filter(k=>pg[k]>0).length>1?"mixto":S.pay;patch.pagadoTs=Date.now()}}
+ myOrders.add(A.id);knownPend&&knownPend.add(A.id);delete S.openO[A.id];
+ S.cart=[];S.override=S.recibido=S.nota="";S.cartCompras=[];S.ackShort=[];S.mix={efectivo:"",nequi:"",transferencia:""};S.cartOpen=false;S.q="";S.anexo=null;S.tipo="local";S.pay="efectivo";
+ dayUpdate(A.date,{sales:{[A.id]:patch}}).then(()=>{},()=>{});toast(`Se agregó al pedido #${s.num||""} · ${money(T.total)}`);
+ if(cfg().ofrecerImprimir!==false&&CAN_PRINT)mPrint(A.date,A.id,`Pedido #${s.num||""} actualizado`,true)}
 function vVender(){
+  const _a=anexoSale();const payList=S.anexo?(_a&&isPaid(_a)&&!_a.noPaga?["efectivo","nequi","transferencia","despues"]:[]):["efectivo","nequi","transferencia","mixto","despues","nopaga"];
   const act=S.products.filter(p=>p.activo!==false);
   const cats=["Todos",...[...new Set(act.map(p=>p.cat||"Otros"))]];
   const q=norm(S.q);const list=act.filter(p=>(S.cat==="Todos"||(p.cat||"Otros")===S.cat)&&(!q||fuzzy(norm(p.name),q)));
@@ -437,6 +464,7 @@ function vVender(){
   const pend=diaSinCerrar();
   return `<div class="posgrid">
   <section class="stack" aria-label="Productos">
+    ${S.anexo&&anexoSale()?`<div class="banner" style="background:#EAF3FC;color:#1C5A9E">➕ Agregando productos al pedido <b>#${anexoSale().num||"—"} · ${esc(quien(anexoSale()))}</b>. <button class="btn ghost" data-a="anexoOff" style="padding:2px 6px">Cancelar</button></div>`:""}
     ${isClosed(S.date)?`<div class="banner red">La caja de ${S.date===workDate()?"hoy":fDate(S.date)} ya está cerrada. Para vender, reábrela en Caja del día.</div>`:""}
     ${pend&&pend!==S.date?`<div class="banner">El ${fDate(pend,true)} quedó sin cerrar. <button class="btn ghost" data-a="goDay" data-v="${pend}">Ir a cerrarlo</button></div>`:""}
     ${noPrice?`<div class="banner">${noPrice} productos no tienen precio todavía. <button class="btn ghost" data-a="tab" data-v="catalogo">Ponerles precio</button></div>`:""}
@@ -446,23 +474,23 @@ function vVender(){
       :`<div class="empty">${S.products.length?`No hay productos que coincidan con “${esc(S.q)}”.`:"Aún no hay productos. Agrégalos en Catálogo."}</div>`}
   </section>
   <aside class="card cart stack ${S.cartOpen?"open":""}" aria-label="Pedido">
-    <div class="row between"><h2>Pedido</h2><div class="row"><span class="chip gray">${fDate(S.date)}</span>${S.cartOpen?`<button class="btn sec" data-a="cartClose">Seguir agregando</button>`:""}</div></div>
+    <div class="row between"><h2>${S.anexo?"Agregar al #"+(S.anexo.num||""):"Pedido"}</h2><div class="row"><span class="chip gray">${fDate(S.date)}</span>${S.cartOpen?`<button class="btn sec" data-a="cartClose">Seguir agregando</button>`:""}</div></div>
     ${S.cart.length?`<div>${S.cart.map((l,i)=>`<div class="cline"><div style="min-width:0"><div class="t" style="font-weight:700">${esc(l.name)}</div><button class="btn ghost small" data-a="lprice" data-i="${i}" style="padding:0">${money(l.price)} c/u ✎</button>
       ${l.pid&&prod(l.pid)?.cat!=="Bebida"?`<button class="sbtn" data-a="salsas" data-i="${i}">${(l.salsas||[]).length?"Salsas: "+esc(l.salsas.join(", "))+" ✎":"+ Escoger salsas"}</button>`:""}
       ${l.pid&&(prod(l.pid)?.receta||[]).length?`<button class="sbtn" data-a="ingr" data-i="${i}" style="color:${(l.sin||[]).length?"var(--red-ink)":"var(--muted)"}">${(l.sin||[]).length?"Sin: "+esc(sinTxt(l))+" ✎":"Ingredientes ✎"}</button>`:""}</div>
       <div class="qty"><button data-a="dec" data-i="${i}" aria-label="Quitar uno">−</button><span class="num">${l.qty}</span><button data-a="inc" data-i="${i}" aria-label="Agregar uno">+</button></div><b class="amt">${money(l.price*l.qty)}</b></div>`).join("")}</div>`
       :`<div class="empty">Toca los productos para armar el pedido. Puedes combinar comidas, bebidas y adicionales en una sola venta.</div>`}
     ${S.cartCompras.length?`<div class="banner small">Compra al momento: ${S.cartCompras.map(c=>esc(c.txt)).join(", ")}</div>`:""}
-    <div><span class="label">Tipo de pedido</span><div class="seg full" style="margin-top:4px">${[["local","En local"],["recoger","Recoger"],["domicilio","Domicilio"]].map(([k,l])=>`<button data-a="tipo" data-v="${k}" aria-pressed="${S.tipo===k}">${l}</button>`).join("")}</div></div>
+    ${S.anexo?(()=>{const a=anexoSale();return a?`<div class="small" style="background:#EAF3FC;color:#1C5A9E;border-radius:10px;padding:8px 10px"><b>Ya tiene:</b> ${esc((a.items||[]).map(itemTxt).join(", "))} · ${esc(pagoTxt(a))}</div>`:""})():""}${S.anexo?'<div hidden>':""}<div><span class="label">Tipo de pedido</span><div class="seg full" style="margin-top:4px">${[["local","En local"],["recoger","Recoger"],["domicilio","Domicilio"]].map(([k,l])=>`<button data-a="tipo" data-v="${k}" aria-pressed="${S.tipo===k}">${l}</button>`).join("")}</div></div>
     ${S.tipo==="local"?`<div><span class="label">Mesa</span><div class="mesas" style="margin-top:4px">${Array.from({length:+cfg().mesas||6},(_,k)=>`<button data-a="mesa" data-v="${k+1}" aria-pressed="${S.mesa===String(k+1)}">${k+1}</button>`).join("")}</div></div>`:""}
     <div class="fgrid"><label class="f"><span class="label">Nombre${S.tipo==="local"?" (opcional)":""}</span><input id="cliente" placeholder="Ej. Laura" value="${esc(S.cliente)}"></label>
       ${S.tipo==="domicilio"?`<label class="f"><span class="label">Teléfono</span><input id="tel" inputmode="tel" value="${esc(S.tel)}"></label>`:""}</div>
     ${S.tipo==="domicilio"?`<label class="f"><span class="label">Dirección</span><input id="dir" placeholder="Ej. Cra 28 #30-15, barrio Centro" value="${esc(S.dir)}"></label>
       <div class="fgrid"><label class="f"><span class="label">Valor del domicilio</span><input id="dom" inputmode="numeric" placeholder="$ 0" value="${esc(S.dom)}"></label></div>
-      ${cfg().domValores.length?`<div class="row">${cfg().domValores.map(v=>`<button class="chip y" data-a="domv" data-v="${v}">${money(v)}</button>`).join("")}</div>`:""}`:""}
+      ${cfg().domValores.length?`<div class="row">${cfg().domValores.map(v=>`<button class="chip y" data-a="domv" data-v="${v}">${money(v)}</button>`).join("")}</div>`:""}`:""}${S.anexo?"</div>":""}
     <div class="fgrid"><label class="f"><span class="label">Total productos</span><input id="override" inputmode="numeric" placeholder="${money(T.sub)}" value="${esc(S.override)}"></label></div>
     ${S.override!==""&&num(S.override)!==T.sub?`<div class="small muted">${num(S.override)<T.sub?"Descuento":"Recargo"} de ${money(Math.abs(T.sub-num(S.override)))} sobre ${money(T.sub)}</div>`:""}
-    <div><span class="label">Forma de pago</span><div class="pays" style="margin-top:4px">${["efectivo","nequi","transferencia","mixto","despues","nopaga"].map(m=>`<button data-a="pay" data-v="${m}" aria-pressed="${S.pay===m}">${m==="transferencia"?"Transfer.":m==="despues"&&S.tipo==="domicilio"?"Contra entrega":METODO[m]}</button>`).join("")}</div></div>
+    <div ${payList.length?"":"hidden"}><span class="label">${S.anexo?"¿Cómo paga lo que agregó?":"Forma de pago"}</span><div class="pays" style="margin-top:4px">${payList.map(m=>`<button data-a="pay" data-v="${m}" aria-pressed="${S.pay===m}">${m==="despues"&&S.tipo==="domicilio"?"Contra entrega":METODO[m]}</button>`).join("")}</div></div>
     ${S.pay==="efectivo"?`<div class="fgrid"><label class="f"><span class="label">Recibido</span><input id="recibido" inputmode="numeric" placeholder="Opcional" value="${esc(S.recibido)}"></label>
       <div class="f"><span class="label">Vueltas</span><b class="amt" style="padding:9px 0">${S.recibido?money(Math.max(0,num(S.recibido)-T.cobrar)):"—"}</b></div></div>`:""}
     ${S.pay==="mixto"?`<div class="fgrid">${SALE_M.map(m=>`<label class="f"><span class="label">${METODO[m]}</span><input id="mix_${m}" inputmode="numeric" value="${esc(S.mix[m])}"></label>`).join("")}</div>
@@ -470,13 +498,13 @@ function vVender(){
     <label class="f"><span class="label">Nota para cocina</span><input id="nota" placeholder="Ej. sin cebolla" value="${esc(S.nota)}"></label>
     ${S.pay==="nopaga"?`<div class="small muted"><b>Familiar o cortesía:</b> se prepara y se entrega normal, gasta inventario, pero no entra a caja. Al entregarlo pasa a la lista de espera y al finalizar el día decides si cuenta como pérdida. Escribe el nombre en “Cliente” para saber quién fue.</div>`:""}
     ${S.pay==="despues"?`<div class="small muted">${S.tipo==="domicilio"?"El domiciliario cobra al entregar. ":""}El pedido queda como <b>sin pagar</b>. Lo cobras desde Pedidos o Caja del día y ahí escoges la forma de pago (también mixto).</div>`:""}
-    <div class="total"><span>${S.pay==="despues"?"Total":"Cobrar"}</span><span class="num">${money(T.cobrar)}</span></div>
+    ${S.anexo&&_a?`<div class="small muted">${_a.noPaga?"Es un pedido que no paga: lo agregado tampoco se cobra.":!isPaid(_a)?"Se suma a la cuenta del pedido y se cobra todo junto.":S.pay==="despues"?"Lo agregado queda pendiente de cobrar; lo que ya pagó se respeta.":""} El pedido pasa de ${money(cobro(_a))} a ${money(cobro(_a)+cartTotals().total)}.</div>`:""}<div class="total"><span>${S.anexo?"Agregado":S.pay==="despues"?"Total":"Cobrar"}</span><span class="num">${money(T.cobrar)}</span></div>
     ${T.dom?`<div class="small muted" style="margin-top:-10px">Incluye domicilio ${money(T.dom)}</div>`:""}
-    <button class="btn big" data-a="sell" ${S.cart.length&&!isClosed(S.date)?"":"disabled"}>Registrar venta</button>
+    <button class="btn big" data-a="sell" ${S.cart.length&&!isClosed(S.anexo?S.anexo.date:S.date)?"":"disabled"}>${S.anexo?"Agregar al pedido #"+(S.anexo.num||""):"Registrar venta"}</button>${S.anexo?`<button class="btn ghost" data-a="anexoOff">Cancelar, no agregar nada</button>`:""}
     ${S.cart.length?`<button class="btn ghost" data-a="clearCart">Vaciar pedido</button>`:""}
   </aside>
   </div>
-  ${S.cart.length&&!S.cartOpen?`<button class="btn cartbar" data-a="cartOpen"><span>Pedido · ${n} ${n===1?"producto":"productos"}</span><b class="num">${money(T.cobrar)}</b></button>`:""}`;
+  ${S.cart.length&&!S.cartOpen?`<button class="btn cartbar" data-a="cartOpen"><span>${S.anexo?"Agregar a #"+(S.anexo.num||""):"Pedido"} · ${n} ${n===1?"producto":"productos"}</span><b class="num">${money(T.cobrar)}</b></button>`:""}`;
 }
 
 
@@ -524,12 +552,12 @@ function vCaja(){
   ${fold("ventas","Ventas del día",`<span class="chip gray">${c.sales.length} · ${money(c.ventas+c.dom)}</span>`,`
     ${c.sales.length?`<div class="list">${c.sales.map(s=>`<div class="li"><span class="chip gray num">${esc(s.hora||"—")}</span><div class="grow"><div class="t">${s.num?`<span class="chip gray">#${s.num}</span> `:""}${esc((s.items||[]).map(itemTxt).join(", "))}${s.cliente?` · ${esc(s.cliente)}`:""}</div>${(s.compras||[]).length?`<div class="small" style="color:#7A5200">Compra al momento: ${esc(s.compras.map(c=>c.txt).join(", "))}</div>`:""}
       <div class="row small" style="gap:6px;margin-top:2px"><span class="chip ${!isPaid(s)?"warn":s.metodo==="efectivo"?"ok":"y"}">${esc(pagoTxt(s))}</span><span class="chip gray">${esc(tipoTxt(s))}${+s.domicilio>0?" "+money(s.domicilio):""}</span>${s.estado==="pendiente"?`<span class="chip warn">Pendiente</span>`:""}${s.nota?`<span class="muted">${esc(s.nota)}</span>`:""}</div></div>
-      <b class="amt">${money(cobro(s))}</b>${closed?"":`<button class="btn ghost" data-a="print" data-id="${s.id}" data-v="${S.date}" aria-label="Imprimir">🖨</button><button class="btn ghost" data-a="cobrar" data-id="${s.id}" data-v="${S.date}">${isPaid(s)?"Pago ✎":"Cobrar"}</button><button class="btn ghost" data-a="cancelar" data-id="${s.id}" data-v="${S.date}">Cancelar</button>`}</div>`).join("")}</div>`
+      <b class="amt">${money(cobro(s))}</b>${closed?"":`<button class="btn ghost" data-a="print" data-id="${s.id}" data-v="${S.date}" aria-label="Imprimir">🖨</button><button class="btn ghost" data-a="cobrar" data-id="${s.id}" data-v="${S.date}">${isPaid(s)?"Pago ✎":"Cobrar"}</button><button class="btn ghost" data-a="anexar" data-id="${s.id}" data-v="${S.date}">➕ Agregar</button><button class="btn ghost" data-a="cancelar" data-id="${s.id}" data-v="${S.date}">Cancelar</button>`}</div>`).join("")}</div>`
       :`<div class="empty">Todavía no hay ventas este día. Regístralas desde Vender.</div>`}`)}
   <div class="grid2">
-    ${fold("gastos","Gastos",`<span class="chip gray">${c.gastos.length} · ${money(c.tg)}</span>`,`<div class="row"><button class="btn sec" data-a="gasto" ${closed?"disabled":""}>+ Gasto</button><button class="btn ghost" data-a="gastoFijo" ${closed?"disabled":""}>+ Gasto fijo</button><button class="btn ghost" data-a="gastoOtro" ${closed?"disabled":""}>+ Otros</button></div>
-      ${c.gastos.length?`<div class="list">${c.gastos.map(g=>`<div class="li"><div class="grow"><div class="t">${esc(g.desc)}</div><div class="small muted">${g.tipo==="fijo"?`<span class="chip" style="background:#EEF5FD;color:#1C5A9E">Fijo</span> `:""}${esc(g.cat)} · ${METODO[g.pago||""]}${g.hora?` · ${g.hora}`:""}</div></div><b class="amt neg">−${money(g.valor)}</b>${closed?"":`<button class="btn ghost" data-a="delG" data-id="${g.id}">Borrar</button>`}</div>`).join("")}</div>`
-        :`<div class="empty">Sin gastos. Ej: gas, arriendo, transporte.</div>`}`)}
+    ${fold("gastos","Gastos",`<span class="chip gray">${c.gastos.length} · ${money(c.tg)}</span>`,`<div class="row"><button class="btn sec" data-a="gasto" ${closed?"disabled":""}>+ Gasto</button><button class="btn ghost" data-a="gastoFijo" ${closed?"disabled":""}>+ Gasto fijo</button><button class="btn ghost" data-a="gastoOtro" ${closed?"disabled":""}>+ Otros</button><button class="btn ghost" data-a="gastoTotal" ${closed?"disabled":""}>${c.gTot?"Total del día ✎":"+ Total del día"}</button></div>
+      ${gTotBox(c,closed)}${c.gastos.filter(g=>g!==c.gTot).length?`${c.gUnico?`<p class="small muted">Estos gastos quedan anotados pero <b>no se cuentan</b>: el total del día los reemplaza.</p>`:""}<div class="list">${c.gastos.filter(g=>g!==c.gTot).map(g=>`<div class="li" style="${c.cuentaG(g)?"":"opacity:.55"}"><div class="grow"><div class="t">${esc(g.desc)}</div><div class="small muted">${g.tipo==="fijo"?`<span class="chip" style="background:#EEF5FD;color:#1C5A9E">Fijo</span> `:""}${esc(g.cat)} · ${METODO[g.pago||""]}${g.hora?` · ${g.hora}`:""}</div></div><b class="amt ${c.cuentaG(g)?"neg":""}" style="${c.cuentaG(g)?"":"text-decoration:line-through"}">−${money(g.valor)}</b>${closed?"":`<button class="btn ghost" data-a="editG" data-id="${g.id}">Editar</button><button class="btn ghost" data-a="delG" data-id="${g.id}">Borrar</button>`}</div>`).join("")}</div>`
+        :c.gTot?"":`<div class="empty">Sin gastos. Ej: gas, arriendo, transporte. Si los tienes en el cuaderno, usa “Total del día”.</div>`}`)}
     ${fold("compras","Compras de insumos",`<span class="chip gray">${c.compras.length} · ${money(c.tc)}</span>`,`<button class="btn sec" data-a="compra" ${closed?"disabled":""}>+ Compra</button>
       ${c.compras.length?`<div class="list">${c.compras.map(p=>`<div class="li"><div class="grow"><div class="t">${esc(ins(p.iid)?.name||p.name)} · ${fmtQ(p.qtyBase,ins(p.iid)?.unit||p.unitIn)}</div><div class="small muted">${esc(p.proveedor||"Sin proveedor")} · ${METODO[p.pago||""]}${p.inversion?` · <span class="chip" style="background:#EEF5FD;color:#1C5A9E">Inversión</span>`:""}</div></div><b class="amt ${p.inversion?"":"neg"}">−${money(p.costo)}</b>${closed?"":`<button class="btn ghost" data-a="editC" data-id="${p.id}">Editar</button><button class="btn ghost" data-a="delC" data-id="${p.id}">Borrar</button>`}</div>`).join("")}</div>
       ${!closed&&c.compras.some(p=>!p.inversion&&/Excel/.test(p.nota||""))?`<button class="btn sec" data-a="impInv">Marcar las ${c.compras.filter(p=>!p.inversion&&/Excel/.test(p.nota||"")).length} compras importadas del Excel como inventario inicial</button>`:""}
@@ -542,13 +570,34 @@ function vCaja(){
 }
 
 
+function gTotBox(c,closed){const g=c.gTot;if(!g)return "";const n=c.gastos.length-1;
+ return `<div class="li" style="background:var(--mustard-soft);border-radius:12px;padding:10px 12px;border:0"><div class="grow"><div class="t">Total de gastos del día${g.desc&&g.desc!=="Total de gastos del día"?" · "+esc(g.desc):""}</div><div class="small muted">${g.modo==="unico"?"Cuenta solo este valor":n?"Se suma a "+(n===1?"el otro gasto":"los otros "+n+" gastos"):"Se suma a los demás gastos"} · ${METODO[g.pago||""]}</div></div><b class="amt neg">−${money(g.valor)}</b>${closed?"":`<button class="btn ghost" data-a="gastoTotal">Editar</button>`}</div>`}
+function mEditGasto(id){if(bloqueado())return;const g=S.days[S.date]?.expenses?.[id];if(!g)return;
+ openModal("Editar gasto",`<form class="stack" id="fm"><p><b>${esc(g.desc)}</b> · ${esc(g.cat||"")}</p><div class="fgrid"><label class="f"><span class="label">Valor</span><input id="eg_v" inputmode="numeric" value="${+g.valor||""}"></label><label class="f"><span class="label">Pagado con</span><select id="eg_p">${payOpts(g.pago||"efectivo")}</select></label></div>
+ <p class="small muted">"Fuera de caja" = se pagó con plata que no salió de la caja, así que no afecta el cuadre del efectivo.</p><button class="btn big">Guardar</button></form>`,s=>{
+  $("#fm",s).onsubmit=e=>{e.preventDefault();const v=num($("#eg_v",s).value);if(!(v>0))return toast("Escribe un valor mayor a cero.",true);dayUpdate(S.date,{expenses:{[id]:{valor:v,pago:$("#eg_p",s).value}}});closeModal();toast("Gasto actualizado")}})}
+function mGastoTotal(){if(bloqueado())return;const c=calcDay(S.date),g=c.gTot,otros=c.gastos.filter(x=>x!==g),tOtros=otros.reduce((a,x)=>a+(+x.valor||0),0);let modo=g?.modo||"sumar";
+ openModal("Total de gastos del día",`<form class="stack" id="fm"><p class="small muted">Escribe de una vez lo que se gastó en el día (por ejemplo, el total del cuaderno), sin pasar cada gasto.</p>
+ <div class="fgrid"><label class="f"><span class="label">Valor total</span><input id="gt_v" inputmode="numeric" value="${g?+g.valor:""}" placeholder="$ 0" required></label><label class="f"><span class="label">Pagado con</span><select id="gt_p">${payOpts(g?.pago||"efectivo")}</select></label></div>
+ <div class="list">
+  <label class="li" style="cursor:pointer"><input type="radio" name="gtm" value="sumar" ${modo==="sumar"?"checked":""}><span class="grow"><span class="t" style="display:block">Sumarlo a los gastos que ya había</span><span class="small muted">${otros.length?`Hay ${otros.length} ${otros.length===1?"gasto anotado":"gastos anotados"} por ${money(tOtros)}`:"Todavía no hay otros gastos anotados este día"}</span></span></label>
+  <label class="li" style="cursor:pointer"><input type="radio" name="gtm" value="unico" ${modo==="unico"?"checked":""}><span class="grow"><span class="t" style="display:block">Contar únicamente este valor</span><span class="small muted">Los gastos anotados quedan como referencia, pero no se cuentan</span></span></label></div>
+ <label class="f"><span class="label">Nota (opcional)</span><input id="gt_n" value="${esc(g&&g.desc!=="Total de gastos del día"?g.desc:"")}" placeholder="Ej. según el cuaderno"></label>
+ <div class="banner small" id="gt_r"></div>
+ <p class="small muted">Si esa plata no salió de la caja (por ejemplo la pagó la dueña), escoge "Fuera de caja" para que no descuadre el efectivo.</p>
+ <button class="btn big">Guardar total</button>${g?`<button type="button" class="btn ghost" id="gt_del">Quitar el total del día</button>`:""}</form>`,s=>{
+  const upd=()=>{modo=s.querySelector("[name=gtm]:checked").value;const v=num($("#gt_v",s).value);$("#gt_r",s).textContent=`Los gastos del día quedan en ${money(modo==="unico"?v:v+tOtros)}`};upd();
+  $("#fm",s).oninput=upd;$("#fm",s).onchange=upd;
+  $("#fm",s).onsubmit=e=>{e.preventDefault();upd();const v=num($("#gt_v",s).value);if(!(v>0))return toast("Escribe un valor mayor a cero.",true);const id=g?g.id:uid("g");const n=$("#gt_n",s).value.trim();
+   dayUpdate(S.date,{expenses:{[id]:{id,ts:g?.ts||Date.now(),hora:g?.hora||hora(),tipo:"total",modo,cat:"Total del día",desc:n||"Total de gastos del día",valor:v,pago:$("#gt_p",s).value}}});closeModal();toast("Total de gastos guardado")};
+  if($("#gt_del",s))$("#gt_del",s).onclick=()=>{dayUpdate(S.date,{expenses:{[g.id]:null}});closeModal();toast("Total del día quitado")}})}
 function vInv(){
   const st=Object.values(stockAll()).filter(s=>s.activo!==false).sort((a,b)=>a.name.localeCompare(b.name,"es"));
   const low=st.filter(s=>s.actual<=(+s.min||0)&&(+s.min>0||s.actual<=0));
   const conteos=[];Object.entries(S.days).forEach(([k,d])=>vals(d.conteos).forEach(c=>conteos.push({...c,date:k})));conteos.sort((a,b)=>(b.ts||0)-(a.ts||0));
   return `<div class="stack">
-  <div class="row between"><h2>Inventario</h2><div class="row"><button class="btn sec" data-a="salidaInv">Uso adicional</button><button class="btn sec" data-a="conteo">Conteo de un insumo</button><button class="btn sec" data-a="conteoTotal">Conteo completo</button><button class="btn ${congelado()?"y":"ghost"}" data-a="congelar">${congelado()?"❄ Descongelar":"❄ Congelar inventario"}</button><button class="btn" data-a="compra">+ Compra</button></div></div>
-  ${congelado()?`<div class="banner" style="background:#EAF3FC;color:#1C5A9E;border:2px solid #3A8DDE"><b>❄ Inventario congelado desde el ${fDate(congelado().desde,true)}.</b> Se sigue vendiendo normal, pero las ventas no descuentan inventario y no salen avisos de "por comprar". Cuando terminen de organizar, haz un <b>Conteo completo</b> y descongela.</div>`:""}
+  <div class="row between"><h2>Inventario</h2><div class="tools"><button class="btn sec" data-a="salidaInv">Uso adicional</button><button class="btn sec" data-a="conteo">Conteo de un insumo</button><button class="btn sec" data-a="conteoTotal">Conteo completo</button>${congelado()?"":`<button class="btn sec" data-a="congelar" style="color:#1C5A9E">❄ Congelar inventario</button>`}<button class="btn" data-a="compra">+ Compra</button></div></div>
+  ${congelado()?`<div class="small" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#1C5A9E;background:#F3F8FD;border:1px solid #DCEAF8;border-radius:10px;padding:5px 10px"><span>❄ Inventario congelado desde el ${fDate(congelado().desde)} · las ventas no lo descuentan</span><button class="btn ghost small" data-a="congelar" style="padding:2px 6px;margin-left:auto;color:#1C5A9E">${S.guiaPaso?"Seguir organizando →":"Descongelar →"}</button></div>`:""}
   ${congelado()?"":low.length?`<section class="card stack" style="border-color:var(--red)"><div class="row between"><h2>Por comprar</h2><span class="chip">${low.length}</span></div>
     <div class="list">${low.map(s=>`<div class="li"><div class="grow"><div class="t">${esc(s.name)}</div><div class="small muted">Hay ${fmtP(s.actual,s)}${+s.min?` · mínimo ${fmtQ(s.min,s.unit)}`:""}</div></div><button class="btn sec" data-a="compraDe" data-id="${s.id}">Registrar compra</button></div>`).join("")}</div></section>`
     :`<div class="banner" style="background:var(--green-soft);color:var(--green)">Todo el inventario está por encima del mínimo.</div>`}
@@ -572,7 +621,13 @@ function vHist(){
   const tot={ventas:sum(c=>c.ventas),dom:sum(c=>c.dom),tg:sum(c=>c.tg),tc:sum(c=>c.tc),tInv:sum(c=>c.tInv),tw:sum(c=>c.tw),perd:sum(c=>c.perdidas),bal:sum(c=>c.balance)};
   const mx=Math.max(1,...cs.map(c=>c.ventas));
   const [y,m]=S.month.split("-").map(Number);const dim=new Date(Date.UTC(y,m,0)).getUTCDate();
-  const top=soldOn(mk).slice(0,8);
+  const hp=S.histPer||"mes";const hd=S.histDia||(mk[mk.length-1]||S.date);
+  const sumD=(k,n)=>{const [yy,mm,dd]=k.split("-").map(Number);return new Date(Date.UTC(yy,mm-1,dd+n)).toISOString().slice(0,10)};
+  const dow=k=>{const [yy,mm,dd]=k.split("-").map(Number);return (new Date(Date.UTC(yy,mm-1,dd)).getUTCDay()+6)%7};
+  const l0=sumD(hd,-dow(hd)),l6=sumD(l0,6);const pk=hp==="dia"?[hd]:hp==="semana"?keys.filter(k=>k>=l0&&k<=l6):mk;
+  const pTxt=hp==="dia"?fDate(hd,true):hp==="semana"?`Semana del ${fDate(l0)} al ${fDate(l6)}`:`${MESL[m-1]} ${y}`;
+  const sold=soldOn(pk),verTodo=!!S.fold.histTodo,top=verTodo?sold:sold.slice(0,10),tUn=sold.reduce((a,x)=>a+x.qty,0),tVal=sold.reduce((a,x)=>a+x.total,0);
+  const sinV=S.products.filter(p=>p.activo!==false&&!sold.some(x=>x.name===p.name));
   return `<div class="stack">
   <div class="row between"><h2>Historial</h2><div class="row"><select id="month" class="btn sec" aria-label="Mes">${months.map(x=>{const [yy,mm]=x.split("-");return `<option value="${x}" ${x===S.month?"selected":""}>${MESL[+mm-1]} ${yy}</option>`}).join("")}</select>
     <button class="btn" data-a="export">${ICON.down} Descargar Excel</button></div></div>
@@ -584,7 +639,14 @@ function vHist(){
   <div class="grid2"><section class="card stack"><h3>Días</h3><div class="list">${cs.slice().reverse().map(c=>{const dif=c.d.cierre?(+c.d.cierre.contado||0)-c.efectivoEsperado:null;return `<button class="li" data-a="goDay" data-v="${c.k}" style="border-left:0;border-right:0;border-bottom:0;background:none;text-align:left;width:100%">
      <div class="grow"><div class="t">${fDate(c.k)}</div><div class="small muted">Ventas ${money(c.ventas)} · ${c.sales.length} pedidos</div></div>
      ${c.d.closed?`<span class="chip ${dif!==null&&Math.abs(dif)>=1?"warn":"ok"}">${dif!==null&&Math.abs(dif)>=1?(dif<0?"Faltó ":"Sobró ")+money(Math.abs(dif)):"Cerrado"}</span>`:`<span class="chip gray">Abierto</span>`}<b class="amt ${c.balance<0?"neg":""}">${money(c.balance)}</b></button>`}).join("")}</div></section>
-   <section class="card stack"><h3>Lo más vendido del mes</h3>${top.length?`<div class="tbl"><table><tbody>${top.map(t=>`<tr><td>${esc(t.name)}</td><td class="r">${trimN(t.qty)}</td><td class="r">${money(t.total)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">Sin ventas este mes.</div>`}</section></div></div>`;
+   </div>
+  <section class="card stack"><div class="row between"><h3>Productos vendidos</h3><div class="seg">${[["mes","Mes"],["semana","Semana"],["dia","Día"]].map(([k,l])=>`<button data-a="histPer" data-v="${k}" aria-pressed="${hp===k}">${l}</button>`).join("")}</div></div>
+   ${hp!=="mes"?`<div class="row" style="flex-wrap:nowrap"><button class="btn sec" data-a="histMove" data-v="-1" aria-label="Anterior">‹</button><input type="date" id="histDia" value="${hd}" aria-label="Fecha" style="border:1.5px solid var(--line);border-radius:10px;padding:8px 9px;flex:1;min-width:0;background:var(--surface)"><button class="btn sec" data-a="histMove" data-v="1" aria-label="Siguiente">›</button></div>`:""}
+   <div class="small muted">${esc(pTxt)} · <b>${sold.length} productos · ${trimN(tUn)} unidades · ${money(tVal)}</b></div>
+   ${top.length?`<div class="tbl"><table><thead><tr><th>#</th><th>Producto</th><th class="r">Cant.</th><th class="r">Valor</th></tr></thead><tbody>${top.map((t,k)=>`<tr><td class="muted">${k+1}</td><td style="white-space:normal">${esc(t.name)}</td><td class="r">${trimN(t.qty)}</td><td class="r">${money(t.total)}</td></tr>`).join("")}</tbody></table></div>
+   ${sold.length>10?`<button class="btn sec" data-a="histTodo">${verTodo?"Ver solo los 10 primeros":`Ver todos (${sold.length})`}</button>`:""}`:`<div class="empty">Sin ventas en este periodo.</div>`}
+   ${sinV.length&&(verTodo||sold.length<=10)?`<div class="small muted"><b>Sin ventas en este periodo (${sinV.length}):</b> ${esc(sinV.map(p=>p.name).join(", "))}</div>`:""}
+  </section></div>`;
 }
 
 
@@ -643,7 +705,7 @@ function vAjustes(){const c=cfg();
    <div class="row"><button class="btn sec" data-a="export">${ICON.down} Descargar Excel</button><label class="btn sec" for="importFile">Cargar copia desde Excel</label><input type="file" id="importFile" accept=".xlsx,.xls" hidden></div></section>
   <section class="card stack"><h3>Clave de acceso</h3><p class="small muted">Usuario: <b>${esc(S.lockUser||"")}</b>. La clave la revisa el servidor. Se pide otra vez cada vez que se cierra la pestaña o el navegador${APP.dentro?". En la app puedes marcar \"Mantener sesión iniciada\" al entrar (dura 6 meses o hasta cambiar la clave)":""}.</p>
    <label class="f" style="max-width:320px"><span class="label">Bloquear sin uso después de</span><select id="autoLockCfg">${[[0,"No bloquear"],[5,"5 minutos"],[15,"15 minutos"],[30,"30 minutos"],[60,"1 hora"]].map(([v,l])=>`<option value="${v}" ${(+cfg().autoLock||0)===v?"selected":""}>${l}</option>`).join("")}</select></label>
-   <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section><p class="small muted" style="text-align:center">Versión de la caja: 17-oct-2026 · 7:45 pm</p>
+   <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section><p class="small muted" style="text-align:center">Versión de la caja: 17-oct-2026 · 11:30 pm</p>
   </div>`}
 
 
@@ -660,7 +722,9 @@ function ordRow(o,k,kind){const open=S.openO[o.id]??(kind==="prep"&&k===0);const
   const btns=[];
   if(kind==="prep")btns.push(`<button class="btn big" data-a="listo" data-id="${o.id}" data-v="${o.date}">${dom?"✓ Listo para llevar":"✓ Listo"}</button>`);
   if(kind==="llevar")btns.push(`<button class="btn big" data-a="entregado" data-id="${o.id}" data-v="${o.date}">${paid||o.noPaga?"✓ Entregado":"✓ Entregado y cobrar"}</button>`);
+  if(paid)btns.push(`<button class="btn sec" data-a="cobrar" data-id="${o.id}" data-v="${o.date}">💳 Cambiar pago</button>`);
   if(!paid&&(kind!=="llevar"||o.noPaga))btns.push(`<button class="btn ${o.noPaga?"sec":"big "+(kind==="prep"?"sec":"y")}" data-a="cobrar" data-id="${o.id}" data-v="${o.date}">${o.noPaga?"Sí va a pagar":"$ Cobrar"}</button>`);
+  if(activa(o))btns.push(`<button class="btn sec" data-a="anexar" data-id="${o.id}" data-v="${o.date}">➕ Agregar productos</button>`);
   btns.push(`<button class="btn sec" data-a="datos" data-id="${o.id}" data-v="${o.date}">Editar datos</button>`);
   btns.push(`<button class="btn sec" data-a="print" data-id="${o.id}" data-v="${o.date}">🖨 Imprimir</button>`);
   btns.push(`<button class="btn sec" data-a="digital" data-id="${o.id}" data-v="${o.date}">📲 Comprobante digital</button>`);
@@ -671,12 +735,12 @@ function ordRow(o,k,kind){const open=S.openO[o.id]??(kind==="prep"&&k===0);const
     <span class="grow"><span class="t" style="display:block">${kind==="prep"&&k===0?`<span class="sigue">Sigue</span> `:""}${esc(quien(o))}</span>${dom&&o.direccion?`<span class="small dirh">📍 ${esc(o.direccion)}</span>`:""}<span class="small muted" style="display:block">${n} ${n===1?"producto":"productos"} · ${esc(o.hora||"")} · ${ago(o.ts||Date.now())}${late?" · ⚠ demorado":""}</span></span>
     ${(o.items||[]).some(i=>(i.sin||[]).length||(i.con||[]).length)||o.nota?`<span class="chip" title="Tiene cambios o nota">⚠ Cambios</span>`:""}<span class="chip ${paid?"ok":"warn"}">${paid?"Pagado":o.noPaga?"🎁 No paga":"Sin pagar"}</span><b class="amt">${o.noPaga&&!paid?"$0":money(cobro(o))}</b><span class="caret">▾</span></button>
    ${open?`<div class="obody">
-    ${o.noPaga&&!paid?`<div class="cobra" style="background:var(--amber-soft);color:var(--amber);border:2px solid var(--mustard)"><span>🎁 NO PAGA · familiar o cortesía</span><span>No cobrar</span></div>`:paid?`<div class="cobra si"><span>✓ YA PAGADO · ${esc(pagoTxt(o))}</span><span>No cobrar</span></div>`:`<div class="cobra no"><span>💵 SIN PAGAR · cobrar</span><span class="num">${money(cobro(o))}</span></div>`}
+    ${o.noPaga&&!paid?`<div class="cobra" style="background:var(--amber-soft);color:var(--amber);border:2px solid var(--mustard)"><span>🎁 NO PAGA · familiar o cortesía</span><span>No cobrar</span></div>`:paid?`<div class="cobra si"><span>✓ YA PAGADO · ${esc(pagoTxt(o))}</span><span>No cobrar</span></div>`:`<div class="cobra no"><span>💵 SIN PAGAR · cobrar</span><span class="num">${money(falta(o))}</span></div>`}
     ${dom?(()=>{const d=o.direccion||"",t=o.telefono||"",w=waNum(t);const msg=`Hola${o.cliente?" "+o.cliente:""}, te escribimos de ${cfg().negocio?.nombre||"Aquí Fue"}: tu pedido #${o.num||""} va en camino.`;
       return `<div class="entrega"><span class="label" style="color:#1C5A9E">Entregar a</span><div class="quien">${esc(o.cliente||"Cliente sin nombre")}</div><div class="dir">📍 ${esc(d||"Sin dirección")}</div>${t?`<div><b>📞 ${esc(t)}</b></div>`:`<div class="small muted">Sin teléfono</div>`}
        <div class="lnk">${t?`<a href="tel:${telDig(t)}" target="_blank" rel="noopener">📞 Llamar</a><a href="https://wa.me/${w}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}${d?`<a href="${mapsUrl(d)}" target="_blank" rel="noopener">📍 Maps</a>`:""}</div>
        <div class="small">Domicilio: <b>${money(o.domicilio)}</b> (incluido en el cobro)</div></div>`})():""}
-    <ul>${(o.items||[]).map(i=>`<li class="it"><b>${trimN(i.qty)}× ${esc(i.name)}</b><div>${(i.sin||[]).length?`<span class="tag sin">SIN ${esc(sinTxt(i))}</span>`:""}${(i.con||[]).length?`<span class="tag con">CON ${esc(conTxt(i))}</span>`:""}${(i.salsas||[]).length?`<span class="tag sal">Salsas: ${esc(i.salsas.join(", "))}</span>`:""}</div></li>`).join("")}</ul>
+    <ul>${(o.items||[]).map(i=>`<li class="it"><b>${trimN(i.qty)}× ${esc(i.name)}</b>${+i.ronda>1?` <span class="tag con" style="background:var(--green)">+ Agregado</span>`:""}<div>${(i.sin||[]).length?`<span class="tag sin">SIN ${esc(sinTxt(i))}</span>`:""}${(i.con||[]).length?`<span class="tag con">CON ${esc(conTxt(i))}</span>`:""}${(i.salsas||[]).length?`<span class="tag sal">Salsas: ${esc(i.salsas.join(", "))}</span>`:""}</div></li>`).join("")}</ul>
     ${o.nota?`<div class="nt">📝 ${esc(o.nota)}</div>`:""}
     ${(()=>{const cs=vals(S.days[o.date]?.consumos).filter(c=>c.venta===o.id);return cs.length?`<div class="small" style="color:#1C5A9E"><b>Insumos extra:</b> ${esc(cs.flatMap(c=>c.items.map(x=>fmtQ(x.qty,ins(x.iid)?.unit)+" "+(ins(x.iid)?.name||""))).join(", "))}</div>`:""})()}
     ${(o.compras||[]).length?`<div class="small" style="color:#7A5200"><b>Compra al momento:</b> ${esc(o.compras.map(c=>c.txt).join(", "))}</div>`:""}
@@ -690,7 +754,7 @@ function vPedidos(){const G=orderGroups();
   ${sec("llevar","Por llevar (domicilios)",G.llevar,"llevar","",true)}
   ${sec("cobrar","Listos, falta cobrar",G.cobrar,"cobrar","",true)}
   ${G.espera.length?fold("o_espera","Lista de espera (cancelados, mal hechos o no pagados)",`<span class="chip warn">${G.espera.length}</span>`,`<p class="small muted">Ya se gastaron los insumos. Si se le vende a otro cliente pasa a ser venta; si no, márcalo como pérdida.</p><div class="list">${G.espera.map(o=>esperaRow(o)).join("")}</div>`,true):""}
-  ${G.hechos.length?fold("o_hechos","Entregados hace poco",`<span class="chip gray">${G.hechos.length}</span>`,`<div class="list">${G.hechos.slice(0,15).map(o=>`<div class="li"><span class="chip ok">#${o.num||"—"}</span><div class="grow"><div class="t">${esc(quien(o))}</div><div class="small muted">${esc((o.items||[]).map(itemTxt).join(", "))} · ${esc(pagoTxt(o))}</div></div><button class="btn ghost" data-a="empacar" data-id="${o.id}" data-v="${o.date}">📦 Empaque</button><button class="btn ghost" data-a="cancelar" data-id="${o.id}" data-v="${o.date}">Cancelar</button><button class="btn ghost" data-a="repend" data-id="${o.id}" data-v="${o.date}">Volver a cocina</button></div>`).join("")}</div>`,false):""}
+  ${G.hechos.length?fold("o_hechos","Entregados hace poco",`<span class="chip gray">${G.hechos.length}</span>`,`<div class="list">${G.hechos.slice(0,15).map(o=>`<div class="li"><span class="chip ok">#${o.num||"—"}</span><div class="grow"><div class="t">${esc(quien(o))}</div><div class="small muted">${esc((o.items||[]).map(itemTxt).join(", "))} · ${esc(pagoTxt(o))}</div></div><button class="btn ghost" data-a="cobrar" data-id="${o.id}" data-v="${o.date}">💳 Pago</button><button class="btn ghost" data-a="anexar" data-id="${o.id}" data-v="${o.date}">➕ Agregar</button><button class="btn ghost" data-a="empacar" data-id="${o.id}" data-v="${o.date}">📦 Empaque</button><button class="btn ghost" data-a="cancelar" data-id="${o.id}" data-v="${o.date}">Cancelar</button><button class="btn ghost" data-a="repend" data-id="${o.id}" data-v="${o.date}">Volver a cocina</button></div>`).join("")}</div>`,false):""}
   </div>`}
 function mDatos(date,id){const s=S.days[date]?.sales?.[id];if(!s)return;let tipo=s.tipo||(+s.domicilio>0?"domicilio":"local"),mesa=s.mesa||"";const paid=isPaid(s);
  openModal(`Datos del pedido #${s.num||"—"}`,`<form class="stack" id="fm"><div class="seg full" id="dt">${[["local","En local"],["recoger","Recoger"],["domicilio","Domicilio"]].map(([k,l])=>`<button type="button" data-t="${k}" aria-pressed="${tipo===k}">${l}</button>`).join("")}</div>
@@ -705,11 +769,11 @@ function mDatos(date,id){const s=S.days[date]?.sales?.[id];if(!s)return;let tipo
    if(tipo==="domicilio"){patch.direccion=$("#d_d",sh).value.trim();patch.telefono=$("#d_t",sh).value.trim();if(!paid)patch.domicilio=num($("#d_v",sh).value)}else if(!paid)patch.domicilio=0;
    if(tipo!=="domicilio"&&s.estado==="llevar")patch.estado="pendiente";
    dayUpdate(date,{sales:{[id]:patch}});closeModal();toast("Datos actualizados")}})}
-function mCobrar(date,id,entregar){const s=S.days[date]?.sales?.[id];if(!s)return;const tot=cobro(s);let m=isPaid(s)?(s.metodo||"efectivo"):"efectivo";const mix={efectivo:"",nequi:"",transferencia:""};if(isPaid(s)&&s.metodo==="mixto")SALE_M.forEach(k=>mix[k]=s.pagos?.[k]||"");
- openModal(`${entregar?"Entregar y cobrar":isPaid(s)?"Cambiar pago":"Cobrar"} · Pedido #${s.num||"—"}`,`<div class="stack"><div class="total"><span>Total</span><span class="num">${money(tot)}</span></div>
+function mCobrar(date,id,entregar){const s=S.days[date]?.sales?.[id];if(!s)return;const ab=isPaid(s)?0:abonado(s),tot=cobro(s)-ab;let m=isPaid(s)?(s.metodo||"efectivo"):"efectivo";const mix={efectivo:"",nequi:"",transferencia:""};if(isPaid(s)&&s.metodo==="mixto")SALE_M.forEach(k=>mix[k]=s.pagos?.[k]||"");
+ openModal(`${entregar?"Entregar y cobrar":isPaid(s)?"Cambiar pago":"Cobrar"} · Pedido #${s.num||"—"}`,`<div class="stack"><div class="total"><span>${ab?"Falta":"Total"}</span><span class="num">${money(tot)}</span></div>${ab?`<div class="small muted" style="margin-top:-10px">Ya abonó ${money(ab)} de ${money(cobro(s))}</div>`:""}
   <div><span class="label">${entregar?"¿Cómo pagó el cliente?":"Forma de pago"}</span><div class="pays" id="cm" style="margin-top:4px"></div></div><div id="cx"></div>
   <button class="btn big" id="cok">${entregar?"✓ Entregado y pagado":"Confirmar pago"}</button>${entregar?`<button class="btn ghost" id="cfiado">Entregado, pero no pagó todavía</button>`:""}${!isPaid(s)&&!s.noPaga?`<button class="btn ghost" id="cnp">🎁 No paga (familiar o cortesía)</button>`:""}${isPaid(s)?`<button class="btn ghost" id="cun">Marcar como no pagado</button>`:""}</div>`,sh=>{
-  const draw=()=>{$("#cm",sh).innerHTML=["efectivo","nequi","transferencia","mixto"].map(k=>`<button type="button" data-m="${k}" aria-pressed="${m===k}">${k==="transferencia"?"Transfer.":METODO[k]}</button>`).join("");
+  const draw=()=>{$("#cm",sh).innerHTML=["efectivo","nequi","transferencia","mixto"].map(k=>`<button type="button" data-m="${k}" aria-pressed="${m===k}">${METODO[k]}</button>`).join("");
    $("#cx",sh).innerHTML=m==="efectivo"?`<div class="fgrid"><label class="f"><span class="label">Recibido</span><input id="crec" inputmode="numeric" placeholder="Opcional"></label><div class="f"><span class="label">Vueltas</span><b class="amt" id="cvu" style="padding:9px 0">—</b></div></div>`
     :m==="mixto"?`<div class="fgrid">${SALE_M.map(k=>`<label class="f"><span class="label">${METODO[k]}</span><input id="cmx_${k}" inputmode="numeric" value="${esc(mix[k])}"></label>`).join("")}</div><div class="small" id="csum"></div>`:""};
   const sum=()=>SALE_M.reduce((a,k)=>a+num(mix[k]),0);
@@ -717,8 +781,8 @@ function mCobrar(date,id,entregar){const s=S.days[date]?.sales?.[id];if(!s)retur
   draw();upd();
   $("#cm",sh).onclick=e=>{const b=e.target.closest("[data-m]");if(b){m=b.dataset.m;draw();upd()}};
   $("#cx",sh).oninput=e=>{if(e.target.id.startsWith("cmx_"))mix[e.target.id.slice(4)]=e.target.value;upd()};
-  $("#cok",sh).onclick=()=>{let pagos={efectivo:0,nequi:0,transferencia:0};if(m==="mixto"){if(Math.round(sum())!==Math.round(tot))return toast(`El pago mixto debe sumar ${money(tot)}.`,true);SALE_M.forEach(k=>pagos[k]=num(mix[k]))}else pagos[m]=tot;
-   dayUpdate(date,{sales:{[id]:{pagado:true,pagadoTs:Date.now(),metodo:m,pagos,noPaga:false,...(entregar?{estado:"listo",listoTs:Date.now()}:{})}}});if(entregar)delete S.openO[id];closeModal();toast(`Pedido #${s.num||""} ${entregar?"entregado y ":""}pagado · ${m==="mixto"?"mixto":METODO[m]}`)};
+  $("#cok",sh).onclick=()=>{let pagos={efectivo:0,nequi:0,transferencia:0};if(m==="mixto"){if(Math.round(sum())!==Math.round(tot))return toast(`El pago mixto debe sumar ${money(tot)}.`,true);SALE_M.forEach(k=>pagos[k]=num(mix[k]))}else pagos[m]=tot;let met=m;if(ab){SALE_M.forEach(k=>pagos[k]=(+pagos[k]||0)+(+(s.pagos||{})[k]||0));if(SALE_M.filter(k=>pagos[k]>0).length>1)met="mixto"}
+   dayUpdate(date,{sales:{[id]:{pagado:true,pagadoTs:Date.now(),metodo:met,pagos,noPaga:false,...(entregar?{estado:"listo",listoTs:Date.now()}:{})}}});if(entregar)delete S.openO[id];closeModal();toast(`Pedido #${s.num||""} ${entregar?"entregado y ":""}pagado · ${m==="mixto"?"mixto":METODO[m]}`)};
   if($("#cnp",sh))$("#cnp",sh).onclick=()=>{const fin=entregar||s.estado==="listo";delete S.openO[id];dayUpdate(date,{sales:{[id]:fin?noPagaPatch(s):{noPaga:true}}});closeModal();toast(fin?"No paga · pasa a lista de espera":"Marcado: no paga. Al entregarlo pasa a lista de espera.")};
   if($("#cfiado",sh))$("#cfiado",sh).onclick=()=>{delete S.openO[id];dayUpdate(date,{sales:{[id]:{estado:"listo",listoTs:Date.now()}}});closeModal();toast("Entregado. Queda en “Listos, falta cobrar”.")};
   if($("#cun",sh))$("#cun",sh).onclick=()=>{dayUpdate(date,{sales:{[id]:{pagado:false,metodo:"",pagos:{efectivo:0,nequi:0,transferencia:0}}}});closeModal()}})}
@@ -855,14 +919,51 @@ function mConteo(){if(bloqueado())return;const st=stockAll();openModal("Conteo f
  $("#fm",s).onsubmit=e=>{e.preventDefault();const i=ins($("#k_i",s).value);if(!i)return;const r=num($("#k_r",s).value)*factor(i,$("#k_u",s).value);const id=uid("k");
   dayUpdate(S.date,{conteos:{[id]:{id,ts:Date.now(),iid:i.id,name:i.name,sistema:st[i.id].actual,real:r,nota:$("#k_n",s).value.trim()}}});closeModal();toast("Conteo guardado; el inventario quedó ajustado")}})}
 function mCongelar(){const z=congelado();
- if(z){openModal("Descongelar inventario",`<div class="stack"><p>El inventario está congelado desde el <b>${fDate(z.desde,true)}</b>. Las ventas de esos días no descontaron inventario.</p><p>Lo recomendable es hacer primero un <b>Conteo completo</b> con lo que hay físicamente, para que el inventario arranque bien desde hoy.</p>
-  <button class="btn big" id="dz_c">Hacer conteo completo y descongelar</button><button class="btn sec" id="dz_s">Descongelar sin contar</button></div>`,sh=>{
-  const off=()=>{S.cfg={...cfg(),congelado:null};saveCfg()};
-  $("#dz_c",sh).onclick=()=>{closeModal();mConteoTotal(()=>{off();toast("Inventario contado y descongelado")})};
-  $("#dz_s",sh).onclick=()=>{off();closeModal();toast("Inventario descongelado")}});return}
- openModal("Congelar inventario",`<div class="stack"><p>Mientras esté congelado:</p><ul style="margin:0;padding-left:18px"><li>Se vende normal y la plata se registra igual.</li><li><b>Las ventas no descuentan inventario</b> y no salen avisos de "no alcanza" ni "por comprar".</li><li>Al finalizar el día, si la caja no cuadra porque faltan gastos por pasar del cuaderno, <b>se puede cerrar igual</b> y la diferencia queda anotada como pendiente.</li></ul>
-  <p class="small muted">Cuando terminen de organizar: pasen los gastos (fijos y otros), hagan un Conteo completo y descongelen.</p><button class="btn big" id="cz_ok">❄ Congelar desde hoy</button></div>`,sh=>{
-  $("#cz_ok",sh).onclick=()=>{S.cfg={...cfg(),congelado:{desde:S.date,ts:Date.now()}};saveCfg();closeModal();toast("Inventario congelado")}})}
+ if(z)return mGuia(S.guiaPaso||1);
+ openModal("Congelar inventario",`<div class="stack"><p>Mientras esté congelado:</p><ul style="margin:0;padding-left:18px"><li>Se vende normal y la plata se registra igual.</li><li><b>Las ventas no descuentan inventario</b> y no salen avisos de "no alcanza" ni "por comprar".</li><li>El cierre del día funciona igual que siempre: la caja tiene que cuadrar.</li><li>Los gastos del cuaderno se pueden pasar uno por uno o como un <b>total del día</b> (Caja del día → Gastos).</li></ul>
+  <p class="small muted">Al descongelar, una guía los acompaña a revisar los insumos, contar lo que hay y revisar las recetas.</p><button class="btn big" id="cz_ok">❄ Congelar desde hoy</button></div>`,sh=>{
+  $("#cz_ok",sh).onclick=()=>{S.cfg={...cfg(),congelado:{desde:S.date,ts:Date.now()}};S.guiaPaso=null;saveCfg();closeModal();toast("Inventario congelado")}})}
+function descongelar(){S.cfg={...cfg(),congelado:null};S.guiaPaso=null;saveCfg();closeModal();toast("Inventario descongelado")}
+function mGuia(p){const z=congelado();if(!z)return;S.guiaPaso=p;const T=["Antes de empezar","Revisar los insumos","Contar lo que hay","Revisar las recetas","Descongelar"],N=T.length;
+ const dias=Object.keys(S.days).filter(k=>k>=z.desde);const nV=dias.reduce((a,k)=>a+vals(S.days[k].sales).filter(s=>activa(s)&&(s.items||[]).some(i=>i.noStock&&i.pid)).length,0);
+ const conteoHecho=Object.values(S.days).flatMap(d=>vals(d.conteos)).filter(c=>c.nota==="Conteo completo"&&(+c.ts||0)>=(+z.ts||0)).sort((a,b)=>b.ts-a.ts)[0]||null;
+ const act=S.products.filter(x=>x.activo!==false),sinRec=act.filter(x=>!(x.receta||[]).length&&!(x.incluye||[]).length);
+ const head=`<div class="row between"><span class="chip gray">Paso ${p} de ${N} · ${T[p-1]}</span>${p<N?`<button type="button" class="btn ghost small" id="gu_ya">Descongelar ya</button>`:""}</div><div style="display:flex;gap:4px">${T.map((_,k)=>`<span style="flex:1;height:5px;border-radius:9px;background:${k<p?"var(--red)":"var(--line)"}"></span>`).join("")}</div>`;
+ const nav=(txt)=>`<div class="row">${p>1?`<button type="button" class="btn sec" id="gu_b">Atrás</button>`:""}<button type="button" class="btn" id="gu_n" style="flex:1">${txt||"Siguiente"}</button></div>`;
+ let body="",insEd=null;
+ if(p===1)body=`<p>El inventario está congelado desde el <b>${fDate(z.desde,true)}</b>.${nV?` Se registraron <b>${nV} ${nV===1?"venta":"ventas"}</b> que no descontaron inventario.`:""}</p>
+  <p>Esta guía los acompaña a dejar el inventario en orden antes de que las ventas vuelvan a descontar:</p>
+  <ol style="margin:0;padding-left:20px"><li>Revisar la lista de insumos (quitar los que no se usan, poner mínimos).</li><li>Contar lo que hay físicamente.</li><li>Revisar las recetas de los productos.</li><li>Descongelar.</li></ol>
+  <p class="small muted">Pueden saltar cualquier paso o tocar “Descongelar ya” en cualquier momento, aunque falten cosas. Si cierran esta ventana, al volver a tocar “Descongelar” siguen donde iban.</p>${nav("Empezar")}`;
+ if(p===2){insEd=S.insumos.slice().sort((a,b)=>a.name.localeCompare(b.name,"es")).map(i=>({id:i.id,activo:i.activo!==false,min:+i.min||0}));
+  body=`<p class="small muted">Desmarca los insumos que ya no se usan y escribe el <b>mínimo</b> (cuando el inventario baje de ahí, avisa “por comprar”). Para cambiar el nombre, la unidad o borrar uno, toca Editar.</p>
+  <input id="gu_q" placeholder="Buscar insumo…" style="border:1.5px solid var(--line);border-radius:10px;padding:9px 11px">
+  <div class="list" id="gu_l">${insEd.map(e=>{const i=ins(e.id);return `<div class="li" data-n="${esc(norm(i.name))}"><input type="checkbox" data-ga="${i.id}" ${e.activo?"checked":""} aria-label="Activo"><div class="grow"><div class="t">${esc(i.name)}</div><div class="small muted">Se mide en ${i.unit==="unidad"?"unidades":i.unit}</div></div><label class="small muted" style="display:flex;align-items:center;gap:4px">Mín.<input data-gm="${i.id}" inputmode="decimal" value="${e.min||""}" placeholder="0" style="width:70px;border:1.5px solid var(--line);border-radius:8px;padding:6px"></label><button type="button" class="btn ghost" data-ge="${i.id}">Editar</button></div>`}).join("")||`<div class="empty">No hay insumos.</div>`}</div>
+  <button type="button" class="btn ghost" id="gu_new">+ Nuevo insumo</button>${nav("Guardar y seguir")}`}
+ if(p===3)body=`${conteoHecho?`<div class="banner" style="background:var(--green-soft);color:var(--green)">✓ Ya hicieron un conteo completo (${fDate(new Date(conteoHecho.ts-5*3600e3).toISOString().slice(0,10))}). Pueden seguir o volver a contar.</div>`:""}
+  <p>Cuenten lo que hay <b>físicamente</b> de cada insumo. El inventario queda exactamente con esas cantidades y desde ahí arranca bien.</p>
+  <button type="button" class="btn big y" id="gu_ct">${conteoHecho?"Volver a contar":"Hacer el conteo completo"}</button>
+  <p class="small muted">Si no cuentan, el inventario sigue con los números de antes de congelar (las ventas de esos días no se descuentan).</p>${nav(conteoHecho?"Siguiente":"Saltar este paso")}`;
+ if(p===4)body=`<p class="small muted">La receta dice qué insumos gasta cada producto; con eso el inventario se descuenta solo al vender. ${sinRec.length?`<b>${sinRec.length} ${sinRec.length===1?"producto no tiene":"productos no tienen"} receta.</b>`:"Todos los productos tienen receta."}</p>
+  <div class="list">${act.slice().sort((a,b)=>((a.receta||[]).length||(a.incluye||[]).length?1:0)-((b.receta||[]).length||(b.incluye||[]).length?1:0)||a.name.localeCompare(b.name,"es")).map(x=>{const r=(x.receta||[]).length,c=(x.incluye||[]).length;return `<div class="li"><div class="grow"><div class="t">${esc(x.name)}</div><div class="small ${r||c?"muted":""}" style="${r||c?"":"color:var(--amber)"}">${r?`${r} insumos: ${esc(x.receta.map(q=>ins(q.iid)?.name||"").filter(Boolean).join(", "))}`:c?`Combo de ${c} productos`:"Sin receta (no descuenta inventario)"}</div></div><button type="button" class="btn ${r||c?"ghost":"sec"}" data-gp="${x.id}">${r||c?"Revisar":"Poner receta"}</button></div>`}).join("")}</div>${nav()}`;
+ if(p===5){const row=(good,t,d)=>`<div class="chk ${good?"":"bad"}"><span class="ic">${good?"✓":"!"}</span><div class="grow"><b>${t}</b>${d?`<div class="small muted">${d}</div>`:""}</div></div>`;
+  body=`<div>${row(true,`${S.insumos.filter(i=>i.activo!==false).length} insumos activos`,"")}
+  ${row(!!conteoHecho,conteoHecho?"Conteo completo hecho":"Sin conteo completo","Pueden descongelar igual; el inventario sigue con los números de antes.")}
+  ${row(!sinRec.length,sinRec.length?`${sinRec.length} productos sin receta`:"Todos los productos tienen receta",sinRec.length?esc(sinRec.slice(0,6).map(x=>x.name).join(", "))+(sinRec.length>6?"…":"")+". No descontarán inventario hasta que tengan receta.":"")}</div>
+  <p>Desde ahora las ventas vuelven a descontar inventario y vuelven los avisos de “por comprar”.</p>
+  <button type="button" class="btn big" id="gu_off">❄ Descongelar ahora</button>${nav("Seguir congelado por ahora")}`}
+ openModal("Organizar y descongelar",`<div class="stack">${head}${body}</div>`,sh=>{
+  const commit=()=>{if(!insEd)return;let ch=false;insEd.forEach(e=>{const i=ins(e.id);if(!i)return;const a=sh.querySelector(`[data-ga="${e.id}"]`).checked,mn=num(sh.querySelector(`[data-gm="${e.id}"]`).value);if((i.activo!==false)!==a||(+i.min||0)!==mn){i.activo=a;i.min=mn;i.upd=Date.now();ch=true}});if(ch)saveCatalog("ins");return ch};
+  const go=n=>{commit();mGuia(n)};
+  if($("#gu_ya",sh))$("#gu_ya",sh).onclick=()=>{commit();ask("¿Descongelar ya, sin terminar la guía? Las ventas vuelven a descontar inventario desde ahora.","Descongelar",descongelar,false)};
+  if($("#gu_b",sh))$("#gu_b",sh).onclick=()=>go(p-1);
+  if($("#gu_n",sh))$("#gu_n",sh).onclick=()=>{if(p===N){closeModal();toast("Sigue congelado. Puedes volver a la guía desde Inventario.");return}if(p===2&&commit())toast("Insumos guardados");mGuia(p+1)};
+  if($("#gu_q",sh))$("#gu_q",sh).oninput=e=>{const q=norm(e.target.value);sh.querySelectorAll("#gu_l .li").forEach(r=>r.hidden=q&&!r.dataset.n.includes(q))};
+  sh.querySelectorAll("[data-ge]").forEach(b=>b.onclick=()=>{commit();mInsumo(b.dataset.ge,()=>mGuia(2))});
+  if($("#gu_new",sh))$("#gu_new",sh).onclick=()=>{commit();mInsumo(null,()=>mGuia(2))};
+  if($("#gu_ct",sh))$("#gu_ct",sh).onclick=()=>mConteoTotal(()=>mGuia(4));
+  sh.querySelectorAll("[data-gp]").forEach(b=>b.onclick=()=>mProduct(b.dataset.gp,()=>mGuia(4)));
+  if($("#gu_off",sh))$("#gu_off",sh).onclick=descongelar})}
 function mConteoTotal(onDone){if(bloqueado())return;const st=stockAll();const L=Object.values(st).filter(x=>x.activo!==false).sort((a,b)=>a.name.localeCompare(b.name,"es"));
  openModal("Conteo completo del inventario",`<form class="stack" id="fm"><p class="small muted">Escribe lo que hay <b>físicamente</b> de cada insumo y revisa la unidad (kg, g, l, ml o unidad). Al guardar, el inventario queda exactamente con estas cantidades desde hoy.</p>
   <label class="row"><input type="checkbox" id="ct_cero" checked> Los que deje vacíos quedan en 0</label>
@@ -881,9 +982,9 @@ function mWorker(id){const w=workersFor(S.date).find(x=>x.id===id);openModal(w.r
   dayUpdate(S.date,{workers:{[id]:{nombre:$("#w_n",s).value.trim(),base:num($("#w_b",s).value),pago:$("#w_p",s).value,trabajo:$("#w_t",s).checked}}});closeModal()}})}
 function mBase(){const fromCierre=!!$("#fz");const c=calcDay(S.date);openModal("Base de caja",`<form class="stack" id="fm"><p class="muted">Dinero en efectivo con el que abriste la caja hoy para dar vueltas. Puede cambiar cada día${baseHeredada(S.date)!=null?`; ayer se dejaron ${money(baseHeredada(S.date))} de base`:""}.</p><label class="f"><span class="label">Base</span><input id="b_v" inputmode="numeric" value="${c.cajaInicial||""}"></label><button class="btn big">Guardar</button></form>`,s=>{$("#fm",s).onsubmit=e=>{e.preventDefault();dayUpdate(S.date,{cajaInicial:num($("#b_v",s).value)});closeModal();if(fromCierre)mCierre()}})}
 function pistas(date,diff){const c=calcDay(date),a=Math.abs(diff),out=[],eq=v=>Math.abs((+v||0)-a)<1,falt=diff<0;
- c.sales.forEach(s=>{if(isPaid(s)&&eq(cobro(s)))out.push(falt?`Es igual al pedido #${s.num||"—"} (${pagoTxt(s)}). ¿Lo pagaron por Nequi o transferencia y quedó como efectivo?`:`Es igual al pedido #${s.num||"—"}. ¿Se pagó en efectivo pero quedó como ${pagoTxt(s)}?`);
+ c.sales.forEach(s=>{if(isPaid(s)&&eq(cobro(s)))out.push(falt?`Es igual al pedido #${s.num||"—"} (${pagoTxt(s)}). ¿Lo pagaron por Bold o Llaves y quedó como efectivo?`:`Es igual al pedido #${s.num||"—"}. ¿Se pagó en efectivo pero quedó como ${pagoTxt(s)}?`);
   if(+s.domicilio>0&&eq(s.domicilio))out.push(`Es igual al domicilio del pedido #${s.num||"—"}. ¿El domiciliario se quedó con ese valor o no lo entregó?`)});
- c.gastos.forEach(g=>{if(eq(g.valor))out.push(falt?`Es igual al gasto “${g.desc}”. ¿Se pagó de la caja dos veces, o se pagó y no se registró otro igual?`:`Es igual al gasto “${g.desc}”. ¿Se registró pero no salió plata de la caja, o se pagó por otro medio?`)});
+ c.gastos.filter(c.cuentaG).forEach(g=>{if(eq(g.valor))out.push(falt?`Es igual al gasto “${g.desc}”. ¿Se pagó de la caja dos veces, o se pagó y no se registró otro igual?`:`Es igual al gasto “${g.desc}”. ¿Se registró pero no salió plata de la caja, o se pagó por otro medio?`)});
  c.compras.forEach(p=>{if(eq(p.costo))out.push(falt?`Es igual a la compra de ${p.name}. ¿Se pagó en efectivo sin registrarla como efectivo?`:`Es igual a la compra de ${p.name}. ¿Se registró como efectivo pero se pagó por otro medio?`)});
  c.workers.forEach(w=>{if(w.trabajo&&eq(w.total))out.push(falt?`Es igual al pago de ${w.rol}. ¿Se le pagó dos veces?`:`Es igual al pago de ${w.rol}. ¿Todavía no se le ha pagado?`)});
  if(eq(c.cajaInicial))out.push("Es igual a la base de caja. ¿La base de hoy era otra?");
@@ -897,19 +998,19 @@ function mCierre(){const date=S.date;const c0=calcDay(date);
  openModal("Finalizar el día · "+fDate(date),`<div class="stack" id="fz"></div>`,s=>{
   const draw=()=>{const c=calcDay(date);const G=orderGroups();const prep=[...G.prep,...G.llevar].filter(o=>o.date===date);const unpaid=c.sales.filter(x=>!isPaid(x)&&!x.noPaga);
    const hasC=contado!=="";const diff=hasC?num(contado)-c.efectivoEsperado:null;const cuadra=hasC&&Math.abs(diff)<1;
-   const org=!!congelado()&&hasC&&!cuadra;const ok=!prep.length&&!unpaid.length&&(cuadra||org);
+   const ok=!prep.length&&!unpaid.length&&cuadra;
    const row=(good,title,detail)=>`<div class="chk ${good?"":"bad"}"><span class="ic">${good?"✓":"!"}</span><div class="grow"><b>${title}</b>${detail?`<div class="small muted">${detail}</div>`:""}</div></div>`;
    $("#fz",s).innerHTML=`
    <div>${row(!prep.length,prep.length?`${prep.length} pedidos sin terminar`:"Todos los pedidos terminados",prep.length?`#${prep.map(o=>o.num).join(", #")}. Márcalos como listos o entregados. <button class="btn ghost" data-a="tab" data-v="pedidos" style="padding:0">Ir a Pedidos</button>`:"")}
-   ${row(!unpaid.length,unpaid.length?`${unpaid.length} pedidos sin pagar (${money(unpaid.reduce((a,x)=>a+cobro(x),0))})`:"Todos los pedidos pagados",unpaid.length?`#${unpaid.map(o=>o.num).join(", #")}. Cóbralos antes de cerrar.`:"")}
+   ${row(!unpaid.length,unpaid.length?`${unpaid.length} pedidos sin pagar (${money(unpaid.reduce((a,x)=>a+falta(x),0))})`:"Todos los pedidos pagados",unpaid.length?`#${unpaid.map(o=>o.num).join(", #")}. Cóbralos antes de cerrar.`:"")}
    ${c.enEspera.length?`<div class="chk bad" style="align-items:flex-start"><span class="ic" style="background:var(--amber-soft);color:var(--amber)">!</span><div class="grow"><b>${c.enEspera.length} pedidos quedaron en lista de espera sin venderse</b><div class="small muted">Decide si cuentan como pérdida. Los que dejes en espera pasan a mañana.</div>
      <div class="list" style="margin-top:6px">${c.enEspera.map(o=>`<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">#${o.num||"—"} · ${esc((o.items||[]).map(itemTxt).join(", "))}</div><div class="small muted">${money(o.total)} · ${esc(o.cancelada?.motivo||"")}</div></div><button class="btn sec" data-perd="${o.id}">Contar pérdida</button><button class="btn ghost" data-desc="${o.id}">No contar</button></div>`).join("")}</div></div></div>`:""}
    ${c.tDesc?row(true,`Descuentos del día: ${money(c.tDesc)}`,`Ya están descontados de las ventas. ${c.descuentos.map(x=>`#${x.s.num||"—"} ${money(x.v)}${x.s.nota?` (${esc(x.s.nota)})`:""}`).join(" · ")}`):""}
    ${c.perdidas?row(true,`Pérdida por pedidos no vendidos o no pagados: ${money(c.perdidas)}`,"No cambia el efectivo: ese dinero nunca entró. Queda registrado en el cierre."):""}
-   ${row(true,`Nequi ${money(c.inM.nequi)} · Transferencias ${money(c.inM.transferencia)}`,"Compáralos con la app y el banco.")}</div>
+   ${row(true,`Bold ${money(c.inM.nequi)} · Llaves ${money(c.inM.transferencia)}`,"Compáralos con la app y el banco.")}</div>
    <div class="tbl"><table><tbody><tr><td>Base de caja</td><td class="r">${money(c.cajaInicial)} <button class="btn ghost" data-a="base" style="padding:0 4px">✎</button></td></tr><tr><td>+ Efectivo que entró</td><td class="r">${money(c.inM.efectivo)}</td></tr><tr><td>− Efectivo que salió</td><td class="r">${money(c.outM.efectivo)}</td></tr><tr><td><b>Efectivo que debe haber</b></td><td class="r"><b>${money(c.efectivoEsperado)}</b></td></tr></tbody></table></div>
    <label class="f"><span class="label">Efectivo contado en caja</span><input id="z_c" inputmode="numeric" value="${esc(contado)}" placeholder="Cuenta los billetes y monedas"></label>
-   ${hasC?(cuadra?`<div class="banner" style="background:var(--green-soft);color:var(--green)">La caja cuadra exacto.</div>`:`<div class="banner red"><b>${diff<0?"Faltan "+money(-diff):"Sobran "+money(diff)}.</b> ${congelado()?"Como el inventario está congelado (modo organización), puedes finalizar igual: la diferencia queda anotada como pendiente por organizar.":"No se puede finalizar el día con la caja descuadrada."}</div>
+   ${hasC?(cuadra?`<div class="banner" style="background:var(--green-soft);color:var(--green)">La caja cuadra exacto.</div>`:`<div class="banner red"><b>${diff<0?"Faltan "+money(-diff):"Sobran "+money(diff)}.</b> No se puede finalizar el día con la caja descuadrada.</div>
      <div class="stack"><span class="label">Posibles causas</span>${pistas(date,diff).map(t=>`<div class="pista">${esc(t)}</div>`).join("")}</div>
      <span class="label">Cómo arreglarlo</span>
      <label class="f"><span class="label">Quién o por qué</span><input id="z_m" placeholder="${diff<0?"Ej. lo puso Gaby, error de vueltas":"Ej. propina, vueltas de más"}"></label>
@@ -917,7 +1018,7 @@ function mCierre(){const date=S.date;const c0=calcDay(date);
       :`<button class="btn" data-fix="retirado">Se retiró el sobrante (${money(diff)})</button><button class="btn sec" data-fix="ingreso">Dejar como ingreso extra</button>`}</div>
      <p class="small muted">También puedes cerrar esta ventana y corregir el registro que esté mal.</p>`):""}
    <div class="fgrid"><label class="f"><span class="label">Base que queda para mañana</span><input id="z_b" inputmode="numeric" value="${esc(baseManana)}"></label><label class="f"><span class="label">Nota</span><input id="z_n" value="${esc(nota)}"></label></div>
-   <button class="btn big" id="z_ok" ${ok?"":"disabled"}>${org?"Finalizar con diferencia pendiente":"Finalizar el día"}</button>
+   <button class="btn big" id="z_ok" ${ok?"":"disabled"}>Finalizar el día</button>
    ${ok?"":`<p class="small muted" style="text-align:center">${!hasC?"Escribe el efectivo contado para continuar.":"Arregla lo que está en rojo para poder finalizar."}</p>`}`;
    s.querySelectorAll("[data-perd],[data-desc]").forEach(b=>b.onclick=()=>{const id=b.dataset.perd||b.dataset.desc;dayUpdate(date,{sales:{[id]:{estado:b.dataset.perd?"perdida":"descartada",cierreTs:Date.now()}}});setTimeout(draw,0)});
    const inp=$("#z_c",s);inp.oninput=()=>{contado=inp.value;const pos=inp.selectionStart;draw();const n=$("#z_c",s);n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}};
@@ -927,9 +1028,9 @@ function mCierre(){const date=S.date;const c0=calcDay(date);
     const id=uid("a");dayUpdate(date,{ajustes:{[id]:{id,tipo:t,valor:v,motivo:m,ts:Date.now()}}});
     if(t==="repuesto")contado=String(num(contado)+v);if(t==="retirado")contado=String(num(contado)-v);
     toast(t==="repuesto"?"Faltante repuesto: la caja cuadra":t==="retirado"?"Sobrante retirado: la caja cuadra":t==="perdida"?"Pérdida registrada":"Ingreso extra registrado");setTimeout(draw,0)});
-   $("#z_ok",s).onclick=()=>{const c2=calcDay(date);const dif=num(contado)-c2.efectivoEsperado;if(Math.abs(dif)>=1&&!congelado())return draw();
+   $("#z_ok",s).onclick=()=>{const c2=calcDay(date);const dif=num(contado)-c2.efectivoEsperado;if(Math.abs(dif)>=1)return draw();
     const w={};c2.workers.forEach(x=>w[x.id]={rol:x.rol,base:+x.base||0,sumaDom:!!x.sumaDom,nombre:x.nombre||"",trabajo:!!x.trabajo,pago:x.pago||"efectivo"});
-    dayUpdate(date,{closed:true,workers:w,cajaInicial:+c2.cajaInicial||0,cierre:{contado:num(contado),esperado:c2.efectivoEsperado,balance:c2.balance,perdidas:c2.perdidas,descuentos:c2.tDesc,...(Math.abs(dif)>=1?{pendiente:dif,organizacion:true}:{}),baseManana:num(baseManana),nota,at:Date.now()}});
+    dayUpdate(date,{closed:true,workers:w,cajaInicial:+c2.cajaInicial||0,cierre:{contado:num(contado),esperado:c2.efectivoEsperado,balance:c2.balance,perdidas:c2.perdidas,descuentos:c2.tDesc,baseManana:num(baseManana),nota,at:Date.now()}});
     closeModal();toast(date===workDate()?"Día finalizado y guardado. El siguiente día arranca en limpio.":"Día finalizado y guardado.")}};
   draw();modalRedraw=draw})}
 let modalRedraw=null;
@@ -938,23 +1039,24 @@ function ticketHTML(s,kind){const c=cfg(),N=c.negocio||{},dom=(s.tipo||(+s.domic
  const head=`<div class="c"><img src="${$(".logo").src}" alt=""><div class="b">${esc(N.nombre||"Aquí Fue")}</div>${N.nit?`<div>NIT/CC ${esc(N.nit)}</div>`:""}${N.dir?`<div>${esc(N.dir)}</div>`:""}${N.tel?`<div>Tel ${esc(N.tel)}</div>`:""}</div><hr>`;
  const info=`<div class="xl c">PEDIDO #${s.num||"—"}</div><div class="c">${esc(fecha)} · ${esc(s.hora||"")}</div><div class="c b">${esc(tipoTxt(s).toUpperCase())}</div>${s.cliente?`<div>Cliente: <b>${esc(s.cliente)}</b></div>`:""}
   ${dom?`<div>Dirección: <b>${esc(s.direccion||"—")}</b></div>${s.telefono?`<div>Tel: <b>${esc(s.telefono)}</b></div>`:""}`:""}<hr>`;
- if(kind==="cocina")return `<div class="xl c">COCINA #${s.num||"—"}</div><div class="c">${esc(s.hora||"")} · <b>${esc(tipoTxt(s))}</b>${s.cliente?" · "+esc(s.cliente):""}</div><hr>
+ if(kind==="nuevo"){const r=Math.max(...(s.items||[]).map(i=>+i.ronda||1));s={...s,items:(s.items||[]).filter(i=>(+i.ronda||1)===r),_nuevo:true};kind="cocina"}
+ if(kind==="cocina")return `<div class="xl c">${s._nuevo?"AGREGAR A":"COCINA"} #${s.num||"—"}</div><div class="c">${esc(s.hora||"")} · <b>${esc(tipoTxt(s))}</b>${s.cliente?" · "+esc(s.cliente):""}</div><hr>
   ${(s.items||[]).map(i=>`<div style="font-size:15px"><b>${trimN(i.qty)} x ${esc(i.name)}</b></div>${(i.salsas||[]).length?`<div>&nbsp;&nbsp;Salsas: ${esc(i.salsas.join(", "))}</div>`:""}${(i.sin||[]).length?`<div class="b">&nbsp;&nbsp;SIN: ${esc(sinTxt(i))}</div>`:""}`).join("")}
   ${s.nota?`<hr><div class="b" style="font-size:14px">NOTA: ${esc(s.nota)}</div>`:""}<hr><div class="c">.</div>`;
  const rows=(s.items||[]).map(i=>`<tr><td>${trimN(i.qty)} ${esc(i.name)}${(i.salsas||[]).length?`<br><small>(${esc(i.salsas.join(", "))})</small>`:""}</td><td class="r">${money((+i.qty||0)*(+i.price||0))}</td></tr>`).join("");
  const sub=+s.subtotal||0,tot=+s.total||0,d=+s.domicilio||0,desc=sub-tot;
  const pago=isPaid(s)?pagoTxt(s):(dom?"PAGA CONTRA ENTREGA":"PENDIENTE DE PAGO");
  return head+info+`<table>${rows}<tr><td colspan="2"><hr></td></tr><tr><td>Subtotal</td><td class="r">${money(sub)}</td></tr>${desc>0?`<tr><td>Descuento</td><td class="r">-${money(desc)}</td></tr>`:desc<0?`<tr><td>Recargo</td><td class="r">${money(-desc)}</td></tr>`:""}${d?`<tr><td>Domicilio</td><td class="r">${money(d)}</td></tr>`:""}
-  <tr><td class="xl">TOTAL</td><td class="r xl">${money(cobro(s))}</td></tr></table><hr><div class="c b">${esc(pago)}</div>${!isPaid(s)&&dom?`<div class="c xl">COBRAR ${money(cobro(s))}</div>`:""}
+  <tr><td class="xl">TOTAL</td><td class="r xl">${money(cobro(s))}</td></tr></table><hr><div class="c b">${esc(pago)}</div>${!isPaid(s)&&dom?`<div class="c xl">COBRAR ${money(falta(s))}</div>`:""}
   ${s.nota?`<hr><div>Nota: ${esc(s.nota)}</div>`:""}<hr><div class="c">${esc(N.pie||"")}</div><div class="c" style="font-size:10px">Comprobante de pedido · no es factura electrónica</div><div class="c">.</div>`}
 function printTicket(date,id,kind){const s0=S.days[date]?.sales?.[id];if(!s0)return;const s={...s0,date};
  if(!CAN_PRINT)return toast("Imprimir funciona en la versión de la página en Google.",true);
  const t=$("#ticket");t.innerHTML=ticketHTML(s,kind);t.style.width=(+cfg().papel||58)+"mm";document.body.classList.add("printing");
  setTimeout(()=>{try{window.print()}catch(e){}setTimeout(()=>document.body.classList.remove("printing"),800)},80)}
-function mPrint(date,id,titulo){const s=S.days[date]?.sales?.[id];if(!s)return;const dom=(s.tipo||(+s.domicilio>0?"domicilio":""))==="domicilio";
- openModal(titulo||`Imprimir · Pedido #${s.num||"—"}`,`<div class="stack"><button class="btn big" id="pC">${dom?"Comprobante para domicilio (con dirección)":"Comprobante para el cliente"}</button><button class="btn big sec" id="pK">Comanda para cocina</button><button class="btn big sec" id="pD">📲 Comprobante digital (WhatsApp o PDF)</button>
+function mPrint(date,id,titulo,nuevo){const s=S.days[date]?.sales?.[id];if(!s)return;const dom=(s.tipo||(+s.domicilio>0?"domicilio":""))==="domicilio";
+ openModal(titulo||`Imprimir · Pedido #${s.num||"—"}`,`<div class="stack"><button class="btn big" id="pC">${dom?"Comprobante para domicilio (con dirección)":"Comprobante para el cliente"}</button>${nuevo?`<button class="btn big y" id="pN">Comanda solo de lo agregado</button>`:""}<button class="btn big sec" id="pK">Comanda para cocina</button><button class="btn big sec" id="pD">📲 Comprobante digital (WhatsApp o PDF)</button>
   ${CAN_PRINT?"":`<p class="small muted">En esta versión no se puede imprimir; usa la página en Google.</p>`}<button class="btn ghost" data-a="closeModal">${titulo?"No imprimir":"Cerrar"}</button></div>`,sh=>{
-  $("#pC",sh).onclick=()=>printTicket(date,id,"cliente");$("#pK",sh).onclick=()=>printTicket(date,id,"cocina");$("#pD",sh).onclick=()=>mDigital(date,id)})}
+  if($("#pN",sh))$("#pN",sh).onclick=()=>printTicket(date,id,"nuevo");$("#pC",sh).onclick=()=>printTicket(date,id,"cliente");$("#pK",sh).onclick=()=>printTicket(date,id,"cocina");$("#pD",sh).onclick=()=>mDigital(date,id)})}
 function ticketText(s){const N=cfg().negocio||{},dom=(s.tipo||(+s.domicilio>0?"domicilio":""))==="domicilio";const L=[];
  L.push(`*${N.nombre||"Aquí Fue"}*`);if(N.nit)L.push(`NIT/CC ${N.nit}`);if(N.dir)L.push(N.dir);if(N.tel)L.push(`Tel ${N.tel}`);L.push("");
  L.push(`*Pedido #${s.num||"—"}* · ${s.date?fDate(s.date,true):""} ${s.hora||""}`);L.push(tipoTxt(s)+(s.cliente?` · ${s.cliente}`:""));if(dom&&s.direccion)L.push(`Dirección: ${s.direccion}`);L.push("");
@@ -974,7 +1076,7 @@ function mDigital(date,id){const s0=S.days[date]?.sales?.[id];if(!s0)return;cons
   $("#dPdf",sh).onclick=()=>{if(!CAN_PRINT)return toast("Guardar en PDF funciona en la versión de Google.",true);printTicket(date,id,"cliente")};
   $("#dCp",sh).onclick=async()=>{try{await navigator.clipboard.writeText(txt.replace(/[*_]/g,""));toast("Comprobante copiado")}catch(e){toast("No se pudo copiar; selecciona el texto.",true)}}})}
 
-function mProduct(id){const p=id?clone(prod(id)):{id:uid("p"),name:"",cat:"Comida",price:0,activo:true,receta:[],incluye:[]};const isNew=!id;
+function mProduct(id,onDone){const p=id?clone(prod(id)):{id:uid("p"),name:"",cat:"Comida",price:0,activo:true,receta:[],incluye:[]};const isNew=!id;
  const cats=[...new Set(["Comida","Bebida","Adicional","Combo",...S.products.map(x=>x.cat).filter(Boolean)])];
  openModal(isNew?"Nuevo producto":"Editar producto",`<form class="stack" id="fm"><label class="f"><span class="label">Nombre</span><input id="p_n" value="${esc(p.name)}" required></label><div id="p_warn" class="small"></div>
  <div class="fgrid"><label class="f"><span class="label">Categoría</span><input id="p_c" list="pcats" value="${esc(p.cat)}"><datalist id="pcats">${cats.map(c=>`<option value="${esc(c)}">`).join("")}</datalist></label><label class="f"><span class="label">Precio de venta</span><input id="p_p" inputmode="numeric" value="${+p.price||""}" placeholder="$ 0"></label></div>
@@ -990,28 +1092,33 @@ function mProduct(id){const p=id?clone(prod(id)):{id:uid("p"),name:"",cat:"Comid
  $("#c_add",s).onclick=()=>{const f=S.products.find(x=>x.id!==p.id);if(f){p.incluye.push({pid:f.id,qty:1});draw()}};
  let warned=false;$("#p_n",s).oninput=()=>{warned=false;$("#p_warn",s).textContent=""};
  if($("#p_del",s))$("#p_del",s).onclick=()=>{const used=Object.values(S.days).some(d=>vals(d.sales).some(x=>(x.items||[]).some(it=>it.pid===p.id)));
-  openModal("Quitar producto",`<p>${used?"Este producto ya tiene ventas guardadas, así que solo se puede ocultar (el historial no se pierde).":"Puedes ocultarlo o borrarlo del todo."}</p><div class="row" style="justify-content:flex-end"><button class="btn sec" id="hid">Ocultar</button>${used?"":`<button class="btn" id="del">Borrar</button>`}</div>`,s2=>{
-   $("#hid",s2).onclick=()=>{prod(p.id).activo=false;prod(p.id).upd=Date.now();saveCatalog("prod");closeModal();toast("Producto oculto")};
-   if($("#del",s2))$("#del",s2).onclick=()=>{S.products=S.products.filter(x=>x.id!==p.id);saveCatalog("prod");closeModal();toast("Producto borrado")}})};
+  const enCombo=S.products.filter(x=>x.id!==p.id&&(x.incluye||[]).some(c=>c.pid===p.id));
+  openModal("Quitar producto",`<div class="stack"><p><b>Ocultar</b> lo quita de Vender pero lo guarda (recomendado si ya se vendió). <b>Borrar</b> lo elimina del catálogo.</p>${used?`<div class="banner small">Este producto ya tiene ventas guardadas. Si lo borras, esas ventas siguen en el historial con su nombre y valor, pero el inventario se recalcula como si no hubieran gastado insumos.</div>`:""}${enCombo.length?`<p class="small muted">También se quita de los combos: ${esc(enCombo.map(x=>x.name).join(", "))}.</p>`:""}<div class="row" style="justify-content:flex-end"><button class="btn sec" id="hid">Ocultar</button><button class="btn" id="del">${used?"Borrar de todas formas":"Borrar"}</button></div></div>`,s2=>{
+   $("#hid",s2).onclick=()=>{prod(p.id).activo=false;prod(p.id).upd=Date.now();saveCatalog("prod");closeModal();toast("Producto oculto");if(onDone)onDone()};
+   $("#del",s2).onclick=()=>{S.products=S.products.filter(x=>x.id!==p.id);enCombo.forEach(x=>{x.incluye=x.incluye.filter(c=>c.pid!==p.id);x.upd=Date.now()});saveCatalog("prod");closeModal();toast("Producto borrado");if(onDone)onDone()}})};
  $("#fm",s).onsubmit=e=>{e.preventDefault();const name=$("#p_n",s).value.trim().replace(/\s+/g," ");const sim=similar(name,S.products,p.id);
   if(sim&&norm(sim.name)===norm(name))return $("#p_warn",s).innerHTML=`<span class="chip">Ya existe “${esc(sim.name)}”.</span>`;
   if(sim&&!warned){warned=true;return $("#p_warn",s).innerHTML=`<span class="chip warn">¿Quisiste decir “${esc(sim.name)}”? Si es otro producto, toca Guardar otra vez.</span>`}
   const catRaw=$("#p_c",s).value.trim()||"Otros";const cat=cats.find(c=>norm(c)===norm(catRaw))||catRaw;
   Object.assign(p,{name,cat,price:num($("#p_p",s).value),activo:$("#p_a",s).checked,receta:p.receta.filter(r=>r.iid&&+r.qty>0),incluye:p.incluye.filter(c=>c.pid&&+c.qty>0),upd:Date.now()});
-  if(isNew)S.products.push(p);else S.products=S.products.map(x=>x.id===p.id?p:x);saveCatalog("prod");closeModal();toast("Producto guardado")}})}
-function mInsumo(id){const back=!$("#modal").hidden&&$("#c_i");const i=id?clone(ins(id)):{id:uid("i"),name:"",unit:"unidad",stockIni:0,min:0,activo:true};const isNew=!id;
+  if(isNew)S.products.push(p);else S.products=S.products.map(x=>x.id===p.id?p:x);saveCatalog("prod");closeModal();toast("Producto guardado");if(onDone)onDone()}})}
+function mInsumo(id,onDone){const back=!$("#modal").hidden&&$("#c_i");const i=id?clone(ins(id)):{id:uid("i"),name:"",unit:"unidad",stockIni:0,min:0,activo:true};const isNew=!id;
  const used=!isNew&&(S.products.some(p=>(p.receta||[]).some(r=>r.iid===i.id))||Object.values(S.days).some(d=>vals(d.purchases).some(c=>c.iid===i.id)));
  openModal(isNew?"Nuevo insumo":"Editar insumo",`<form class="stack" id="fm"><label class="f"><span class="label">Nombre</span><input id="i_n" value="${esc(i.name)}" required></label><div id="i_warn" class="small"></div>
  <label class="f"><span class="label">Se mide en</span><select id="i_u" ${used?"disabled":""}>${[["g","Gramos (g)"],["ml","Mililitros (ml)"],["unidad","Unidades"]].map(([v,l])=>`<option value="${v}" ${i.unit===v?"selected":""}>${l}</option>`).join("")}</select></label>${used?`<div class="small muted" style="margin-top:-8px">La unidad no se puede cambiar porque ya se usa en recetas o compras.</div>`:""}
  <div class="fgrid"><label class="f"><span class="label">Stock inicial</span><input id="i_s" inputmode="decimal" value="${+i.stockIni||0}"></label><label class="f"><span class="label">Stock mínimo (avisa)</span><input id="i_m" inputmode="decimal" value="${+i.min||0}"></label></div>
  <p class="small muted">Escribe el stock en la misma unidad (por ejemplo 5 kg = 5000 g).</p>
  <label class="row"><input type="checkbox" id="i_emp" ${esEmpaque(i)?"checked":""}> Es empaque para llevar (no se descuenta en pedidos en mesa)</label>
- <div class="fgrid"><label class="f"><span class="label">Se compra por (opcional)</span><input id="i_pn" placeholder="Ej. bolsa 4 kg" value="${esc(i.pres?.n||"")}"></label><label class="f"><span class="label">Cuánto trae (en ${i.unit==="unidad"?"unidades":i.unit})</span><input id="i_pq" inputmode="decimal" placeholder="Ej. 4000" value="${i.pres?.q||""}"></label></div><label class="row"><input type="checkbox" id="i_a" ${i.activo!==false?"checked":""}> Activo</label><label class="row"><input type="checkbox" id="i_ctl" ${i.controla!==false?"checked":""}> Avisar si no alcanza al vender</label><button class="btn big">Guardar insumo</button></form>`,s=>{
+ <div class="fgrid"><label class="f"><span class="label">Se compra por (opcional)</span><input id="i_pn" placeholder="Ej. bolsa 4 kg" value="${esc(i.pres?.n||"")}"></label><label class="f"><span class="label">Cuánto trae (en ${i.unit==="unidad"?"unidades":i.unit})</span><input id="i_pq" inputmode="decimal" placeholder="Ej. 4000" value="${i.pres?.q||""}"></label></div><label class="row"><input type="checkbox" id="i_a" ${i.activo!==false?"checked":""}> Activo</label><label class="row"><input type="checkbox" id="i_ctl" ${i.controla!==false?"checked":""}> Avisar si no alcanza al vender</label><button class="btn big">Guardar insumo</button>${isNew?"":`<button type="button" class="btn ghost" id="i_del">Ocultar o borrar</button>`}</form>`,s=>{
+ if($("#i_del",s))$("#i_del",s).onclick=()=>{const recs=S.products.filter(p=>(p.receta||[]).some(r=>r.iid===i.id));const hist=Object.values(S.days).some(d=>vals(d.purchases).some(c=>c.iid===i.id)||vals(d.conteos).some(c=>c.iid===i.id)||vals(d.consumos).some(c=>(c.items||[]).some(x=>x.iid===i.id)));
+  openModal("Quitar insumo",`<div class="stack"><p><b>${esc(i.name)}</b></p><p><b>Ocultar</b> lo saca de las listas pero lo guarda. <b>Borrar</b> lo elimina del catálogo.</p>${recs.length?`<div class="banner small">Está en la receta de ${recs.length} ${recs.length===1?"producto":"productos"}: ${esc(recs.map(p=>p.name).join(", "))}. Si lo borras, se quita de esas recetas.</div>`:""}${hist?`<p class="small muted">Las compras y conteos que ya tiene quedan en el historial (la plata de las compras no cambia).</p>`:""}<div class="row" style="justify-content:flex-end"><button class="btn sec" id="ihid">Ocultar</button><button class="btn" id="idel">Borrar</button></div></div>`,s2=>{
+   $("#ihid",s2).onclick=()=>{const x=ins(i.id);x.activo=false;x.upd=Date.now();saveCatalog("ins");closeModal();toast("Insumo oculto");if(onDone)onDone()};
+   $("#idel",s2).onclick=()=>{S.insumos=S.insumos.filter(x=>x.id!==i.id);recs.forEach(p=>{p.receta=p.receta.filter(r=>r.iid!==i.id);p.upd=Date.now()});saveCatalog("ins");if(recs.length)saveCatalog("prod");closeModal();toast("Insumo borrado");if(onDone)onDone()}})};
  let warned=false;$("#fm",s).onsubmit=e=>{e.preventDefault();const name=$("#i_n",s).value.trim().replace(/\s+/g," ");const sim=similar(name,S.insumos,i.id);
   if(sim&&norm(sim.name)===norm(name))return $("#i_warn",s).innerHTML=`<span class="chip">Ya existe “${esc(sim.name)}”.</span>`;
   if(sim&&!warned){warned=true;return $("#i_warn",s).innerHTML=`<span class="chip warn">¿Quisiste decir “${esc(sim.name)}”? Si es otro insumo, toca Guardar otra vez.</span>`}
   i.empaque=$("#i_emp",s).checked;Object.assign(i,{name,unit:$("#i_u",s).value,stockIni:num($("#i_s",s).value),min:num($("#i_m",s).value),activo:$("#i_a",s).checked,upd:Date.now()});const pn=$("#i_pn",s).value.trim(),pq=num($("#i_pq",s).value);i.pres=pn&&pq>0?{n:pn,q:pq}:null;i.controla=$("#i_ctl",s).checked;
-  if(isNew)S.insumos.push(i);else S.insumos=S.insumos.map(x=>x.id===i.id?i:x);saveCatalog("ins");closeModal();toast("Insumo guardado");if(back)mCompra()}})}
+  if(isNew)S.insumos.push(i);else S.insumos=S.insumos.map(x=>x.id===i.id?i:x);saveCatalog("ins");closeModal();toast("Insumo guardado");if(onDone)onDone();else if(back)mCompra()}})}
 
 
 const LS={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
@@ -1052,15 +1159,15 @@ function mSetLock(){openModal("Cambiar clave",`<form class="stack" id="fm"><labe
 function buildWorkbook(){const X=XLSX,wb=X.utils.book_new();const add=(name,rows,head)=>{const ws=head?X.utils.json_to_sheet(rows,{header:head}):X.utils.aoa_to_sheet(rows);X.utils.book_append_sheet(wb,ws,name)};
  const keys=Object.keys(S.days).sort();const pn=id=>prod(id)?.name,iname=id=>ins(id)?.name;
  add("Léeme",[["Copia de seguridad · Caja Aquí Fue"],["Descargada",new Date().toLocaleString("es-CO",{timeZone:"America/Bogota"})],[""],["Para restaurar: en la página ve a Ajustes → Cargar copia desde Excel y escoge este archivo."],["La hoja _respaldo guarda todo exacto. No la edites ni la borres."],["Puedes editar las hojas Productos, Insumos y Recetas: cambia precios, agrega filas nuevas dejando el ID vacío. Al cargar el archivo se actualiza el catálogo."],["Cargar la misma copia varias veces no duplica ventas, compras ni gastos."]]);
- const mon={};keys.forEach(k=>{const c=calcDay(k),m=k.slice(0,7);const o=mon[m]=mon[m]||{Mes:m,Ventas:0,Domicilios:0,Gastos:0,Compras:0,Trabajadores:0,Balance:0,Efectivo:0,Nequi:0,Transferencia:0};o.Ventas+=c.ventas;o.Domicilios+=c.dom;o.Gastos+=c.tg;o.Compras+=c.tc;o.Trabajadores+=c.tw;o.Balance+=c.balance;o.Efectivo+=c.inM.efectivo;o.Nequi+=c.inM.nequi;o.Transferencia+=c.inM.transferencia});
+ const mon={};keys.forEach(k=>{const c=calcDay(k),m=k.slice(0,7);const o=mon[m]=mon[m]||{Mes:m,Ventas:0,Domicilios:0,Gastos:0,Compras:0,Trabajadores:0,Balance:0,Efectivo:0,Bold:0,Llaves:0};o.Ventas+=c.ventas;o.Domicilios+=c.dom;o.Gastos+=c.tg;o.Compras+=c.tc;o.Trabajadores+=c.tw;o.Balance+=c.balance;o.Efectivo+=c.inM.efectivo;o.Bold+=c.inM.nequi;o.Llaves+=c.inM.transferencia});
  add("Resumen mensual",Object.values(mon));
- add("Cierres diarios",keys.map(k=>{const c=calcDay(k);return{Fecha:k,Pedidos:c.sales.length,Ventas:c.ventas,"Por cobrar":c.porCobrar,"Descuentos":c.tDesc,"Pérdidas (no vendido)":c.perdidas,"En espera":c.enEspera.length,Domicilios:c.dom,Gastos:c.tg,Compras:c.tc,"Inversión inventario":c.tInv,Trabajadores:c.tw,Balance:c.balance,"Entró efectivo":c.inM.efectivo,"Entró Nequi":c.inM.nequi,"Entró transferencia":c.inM.transferencia,"Base de caja":c.cajaInicial,"Efectivo esperado":c.efectivoEsperado,"Efectivo contado":c.d.cierre?.contado??"","Ajustes":c.ajustes.map(a=>a.tipo+" "+a.valor+(a.motivo?" ("+a.motivo+")":"")).join("; "),"Base para mañana":c.d.cierre?.baseManana??"",Diferencia:c.d.cierre?(+c.d.cierre.contado||0)-c.efectivoEsperado:"","Pendiente por organizar":c.d.cierre?.pendiente||"",Estado:c.d.closed?"Cerrado":"Abierto",Nota:c.d.cierre?.nota||""}}));
- const V=[],D=[],G=[],C=[],W=[];keys.forEach(k=>{const c=calcDay(k);c.sales.slice().reverse().forEach(s=>{V.push({Fecha:k,Hora:s.hora||"",Pedido:s.num||"",Tipo:tipoTxt(s),Cliente:s.cliente||"",Dirección:s.direccion||"",Productos:(s.items||[]).map(itemTxt).join(", "),Subtotal:s.subtotal??s.total,Descuento:descDe(s),Total:+s.total||0,Domicilio:+s.domicilio||0,"Forma de pago":pagoTxt(s),Pagado:isPaid(s)?"Sí":"No",Efectivo:s.pagos?.efectivo||0,Nequi:s.pagos?.nequi||0,Transferencia:s.pagos?.transferencia||0,Nota:s.nota||"",ID:s.id});(s.items||[]).forEach(i=>D.push({Fecha:k,Hora:s.hora||"",Producto:i.pid?(pn(i.pid)||i.name):i.name,Salsas:(i.salsas||[]).join(", "),Cantidad:+i.qty,"Precio unitario":+i.price,Valor:(+i.qty)*(+i.price),"ID venta":s.id}))});
-  c.gastos.forEach(g=>G.push({Fecha:k,Hora:g.hora||"",Descripción:g.desc,Categoría:g.cat,Valor:+g.valor,"Pagado con":METODO[g.pago||""],ID:g.id}));
+ add("Cierres diarios",keys.map(k=>{const c=calcDay(k);return{Fecha:k,Pedidos:c.sales.length,Ventas:c.ventas,"Por cobrar":c.porCobrar,"Descuentos":c.tDesc,"Pérdidas (no vendido)":c.perdidas,"En espera":c.enEspera.length,Domicilios:c.dom,Gastos:c.tg,Compras:c.tc,"Inversión inventario":c.tInv,Trabajadores:c.tw,Balance:c.balance,"Entró efectivo":c.inM.efectivo,"Entró Bold":c.inM.nequi,"Entró Llaves":c.inM.transferencia,"Base de caja":c.cajaInicial,"Efectivo esperado":c.efectivoEsperado,"Efectivo contado":c.d.cierre?.contado??"","Ajustes":c.ajustes.map(a=>a.tipo+" "+a.valor+(a.motivo?" ("+a.motivo+")":"")).join("; "),"Base para mañana":c.d.cierre?.baseManana??"",Diferencia:c.d.cierre?(+c.d.cierre.contado||0)-c.efectivoEsperado:"","Pendiente por organizar":c.d.cierre?.pendiente||"",Estado:c.d.closed?"Cerrado":"Abierto",Nota:c.d.cierre?.nota||""}}));
+ const V=[],D=[],G=[],C=[],W=[];keys.forEach(k=>{const c=calcDay(k);c.sales.slice().reverse().forEach(s=>{V.push({Fecha:k,Hora:s.hora||"",Pedido:s.num||"",Tipo:tipoTxt(s),Cliente:s.cliente||"",Dirección:s.direccion||"",Productos:(s.items||[]).map(itemTxt).join(", "),Subtotal:s.subtotal??s.total,Descuento:descDe(s),Total:+s.total||0,Domicilio:+s.domicilio||0,"Forma de pago":pagoTxt(s),Pagado:isPaid(s)?"Sí":"No",Efectivo:s.pagos?.efectivo||0,Bold:s.pagos?.nequi||0,Llaves:s.pagos?.transferencia||0,Nota:s.nota||"",ID:s.id});(s.items||[]).forEach(i=>D.push({Fecha:k,Hora:s.hora||"",Producto:i.pid?(pn(i.pid)||i.name):i.name,Salsas:(i.salsas||[]).join(", "),Cantidad:+i.qty,"Precio unitario":+i.price,Valor:(+i.qty)*(+i.price),"ID venta":s.id}))});
+  c.gastos.forEach(g=>G.push({Fecha:k,Hora:g.hora||"",Descripción:g.desc,Categoría:g.cat,Valor:+g.valor,"Pagado con":METODO[g.pago||""],"Cuenta en el balance":c.cuentaG(g)?"Sí":"No",ID:g.id}));
   c.compras.forEach(p=>C.push({Fecha:k,Hora:p.hora||"",Insumo:iname(p.iid)||p.name,Cantidad:+p.qty,Unidad:p.unitIn,"Cantidad base":+p.qtyBase,"Costo total":+p.costo,Proveedor:p.proveedor||"","Pagado con":METODO[p.pago||""],Inversión:p.inversion?"Sí":"No",ID:p.id}));
   c.workers.forEach(w=>W.push({Fecha:k,Cargo:w.rol,Nombre:w.nombre||"",Trabajó:w.trabajo?"Sí":"No",Base:+w.base||0,Domicilios:w.domTotal,"Total pagado":w.total,"Pagado con":METODO[w.pago||"efectivo"]}))});
- add("Ventas",V,["Fecha","Hora","Pedido","Tipo","Cliente","Dirección","Productos","Subtotal","Total","Domicilio","Forma de pago","Pagado","Efectivo","Nequi","Transferencia","Nota","ID"]);add("Detalle ventas",D,["Fecha","Hora","Producto","Salsas","Cantidad","Precio unitario","Valor","ID venta"]);
- add("Gastos",G,["Fecha","Hora","Descripción","Categoría","Valor","Pagado con","ID"]);add("Compras",C,["Fecha","Hora","Insumo","Cantidad","Unidad","Cantidad base","Costo total","Proveedor","Pagado con","Inversión","ID"]);add("Trabajadores",W,["Fecha","Cargo","Nombre","Trabajó","Base","Domicilios","Total pagado","Pagado con"]);
+ add("Ventas",V,["Fecha","Hora","Pedido","Tipo","Cliente","Dirección","Productos","Subtotal","Total","Domicilio","Forma de pago","Pagado","Efectivo","Bold","Llaves","Nota","ID"]);add("Detalle ventas",D,["Fecha","Hora","Producto","Salsas","Cantidad","Precio unitario","Valor","ID venta"]);
+ add("Gastos",G,["Fecha","Hora","Descripción","Categoría","Valor","Pagado con","Cuenta en el balance","ID"]);add("Compras",C,["Fecha","Hora","Insumo","Cantidad","Unidad","Cantidad base","Costo total","Proveedor","Pagado con","Inversión","ID"]);add("Trabajadores",W,["Fecha","Cargo","Nombre","Trabajó","Base","Domicilios","Total pagado","Pagado con"]);
  const st=stockAll();add("Inventario",Object.values(st).map(s=>({Insumo:s.name,Unidad:s.unit,Inicial:s.ini,Comprado:s.comprado,"Usado en ventas":Math.round(s.consumido*100)/100,Ajustes:s.ajuste,Hay:Math.round(s.actual*100)/100,Mínimo:+s.min||0})));
  add("Productos",S.products.map(p=>({ID:p.id,Nombre:p.name,Categoría:p.cat,Precio:+p.price||0,Activo:p.activo!==false?"Sí":"No"})),["ID","Nombre","Categoría","Precio","Activo"]);
  add("Insumos",S.insumos.map(i=>({ID:i.id,Nombre:i.name,Unidad:i.unit,"Stock inicial":+i.stockIni||0,"Stock mínimo":+i.min||0,Activo:i.activo!==false?"Sí":"No",Presentación:presOf(i)?.n||"","Cantidad presentación":presOf(i)?.q||"","Para llevar":esEmpaque(i)?"Sí":"No"})),["ID","Nombre","Unidad","Stock inicial","Stock mínimo","Activo","Presentación","Cantidad presentación","Para llevar"]);
@@ -1152,14 +1259,19 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
   case "domv":S.dom=v;render();break;
   case "cartOpen":S.cartOpen=true;render();break;
   case "cartClose":S.cartOpen=false;render();break;
-  case "clearCart":S.cart=[];S.dom=S.override=S.recibido=S.nota=S.cliente=S.mesa=S.dir=S.tel="";S.cartCompras=[];S.ackShort=[];S.tipo="local";S.mix={efectivo:"",nequi:"",transferencia:""};S.cartOpen=false;render();break;
+  case "anexar":startAnexo(v,id);break;
+  case "anexoOff":S.anexo=null;S.cart=[];S.nota=S.override=S.recibido="";S.cartCompras=[];S.ackShort=[];S.tipo="local";S.pay="efectivo";S.cartOpen=false;render();break;
+  case "clearCart":S.anexo=null;S.cart=[];S.dom=S.override=S.recibido=S.nota=S.cliente=S.mesa=S.dir=S.tel="";S.cartCompras=[];S.ackShort=[];S.tipo="local";S.mix={efectivo:"",nequi:"",transferencia:""};S.cartOpen=false;render();break;
   case "sell":sell();break;
   case "delSale":ask("¿Anular esta venta? Se quita del balance y el inventario vuelve a sumar lo que gastó.","Anular venta",()=>{dayUpdate(S.date,{sales:{[id]:null}});toast("Venta anulada")});break;
   case "delG":ask("¿Borrar este gasto?","Borrar",()=>dayUpdate(S.date,{expenses:{[id]:null}}));break;
   case "editC":if(!bloqueado())mEditCompra(id);break;
   case "impInv":{const list=vals(S.days[S.date]?.purchases).filter(p=>!p.inversion&&/Excel/.test(p.nota||""));ask(`¿Marcar ${list.length} compras importadas del Excel como inventario inicial? Seguirán en el inventario pero no contarán en el balance del día. Su forma de pago no cambia.`,"Marcar",()=>{const patch={};list.forEach(p=>patch[p.id]={inversion:true});dayUpdate(S.date,{purchases:patch});toast("Compras marcadas como inventario inicial")},false);break}
   case "delC":ask("¿Borrar esta compra? También se resta del inventario.","Borrar",()=>dayUpdate(S.date,{purchases:{[id]:null}}));break;
-  case "gasto":mGasto();break;case "gastoFijo":mGasto("fijo");break;case "gastoOtro":mGasto("otro");break;case "congelar":mCongelar();break;case "conteoTotal":mConteoTotal();break;case "compra":mCompra();break;case "conteo":mConteo();break;
+  case "gasto":mGasto();break;case "histTodo":S.fold.histTodo=!S.fold.histTodo;render();break;
+  case "histPer":S.histPer=v;S.fold.histTodo=false;render();break;
+  case "histMove":{const k=S.histDia||Object.keys(S.days).filter(x=>x.startsWith(S.month||"")).sort().pop()||S.date;const [yy,mm,dd]=k.split("-").map(Number);S.histDia=new Date(Date.UTC(yy,mm-1,dd+(+v)*(S.histPer==="semana"?7:1))).toISOString().slice(0,10);render();break}
+  case "gastoTotal":mGastoTotal();break;case "editG":mEditGasto(id);break;case "gastoFijo":mGasto("fijo");break;case "gastoOtro":mGasto("otro");break;case "congelar":mCongelar();break;case "conteoTotal":mConteoTotal();break;case "compra":mCompra();break;case "conteo":mConteo();break;
   case "worker":mWorker(id);break;case "base":mBase();break;case "cierre":mCierre();break;
   case "goDay":S.date=v;S.dateManual=true;S.view="caja";render();window.scrollTo(0,0);break;
   case "catTab":S.catTab=v;render();break;
@@ -1182,7 +1294,7 @@ function readCfgForm(){const c=cfg();if(!$("#cajaBase")){S.cfg=c;return}
 document.addEventListener("input",e=>{const t=e.target;if(!t.id)return;
  if(t.id==="q"){S.q=t.value;render()}else if(t.id==="dom"){S.dom=t.value;render()}else if(t.id==="override"){S.override=t.value;render()}else if(t.id==="recibido"){S.recibido=t.value;render()}else if(t.id==="nota")S.nota=t.value;else if(t.id==="cliente")S.cliente=t.value;else if(t.id==="dir")S.dir=t.value;else if(t.id==="tel")S.tel=t.value;
  else if(t.id.startsWith("mix_")){S.mix[t.id.slice(4)]=t.value;render()}});
-document.addEventListener("change",e=>{const t=e.target;if(t.id==="dayInput"&&t.value){S.date=t.value;S.dateManual=t.value!==workDate();render()}else if(t.id==="month"){S.month=t.value;render()}else if(t.id==="importFile"&&t.files[0]){onImport(t.files[0]);t.value=""}else if(t.id==="sonidoFile"&&t.files[0]){subirSonidoUI(t.files[0]);t.value=""}});
+document.addEventListener("change",e=>{const t=e.target;if(t.id==="dayInput"&&t.value){S.date=t.value;S.dateManual=t.value!==workDate();render()}else if(t.id==="month"){S.month=t.value;S.histDia=null;render()}else if(t.id==="histDia"&&t.value){S.histDia=t.value;render()}else if(t.id==="importFile"&&t.files[0]){onImport(t.files[0]);t.value=""}else if(t.id==="sonidoFile"&&t.files[0]){subirSonidoUI(t.files[0]);t.value=""}});
 function tryAdd(id){const p=prod(id);const l=S.cart.find(x=>x.pid===id&&x.price===(+p.price||0)&&!(x.salsas||[]).length&&!(x.sin||[]).length&&!(x.con||[]).length);
  const next=l?S.cart.map(x=>x===l?{...x,qty:x.qty+1}:x):[...S.cart,{pid:id,qty:1}];
  const sh=shortages(next).filter(x=>!S.ackShort.includes(x.i.id));
@@ -1200,7 +1312,7 @@ async function subirSonidoUI(file){if(!/^audio\//.test(file.type))return toast("
  toast("Subiendo sonido…");const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(",")[1]);fr.onerror=rej;fr.readAsDataURL(file)});
  try{const meta=await call("subirSonido",file.name,file.type,b64);S.sonidoMeta=meta;customV=meta.v;setCustomAudio(b64,file.type);LS.set(SONIDO_KEY,JSON.stringify({v:meta.v,mime:file.type,b64}));
   S.cfg={...cfg(),tono:"propio"};await saveCfg();render();toast("Sonido subido. Ya es el tono de los pedidos.");playCustom(cfg().volumen??90)}catch(e){toast("No se pudo subir: "+errMsg(e),true)}}
-function sell(force){if(bloqueado())return;const T=cartTotals();let pagos;
+function sell(force){if(S.anexo)return anexarVenta();if(bloqueado())return;const T=cartTotals();let pagos;
  if(!force){const falta=[];if(S.tipo==="local"&&!S.mesa&&!S.cliente.trim())falta.push("la mesa o el nombre");if(S.tipo==="recoger"&&!S.cliente.trim())falta.push("el nombre de quien recoge");
   if(S.tipo==="domicilio"){if(!S.dir.trim())falta.push("la dirección");if(!num(S.dom))falta.push("el valor del domicilio")}
   if(falta.length){openModal("¿Registrar sin estos datos?",`<div class="stack"><p>Falta ${falta.join(" y ")}. Puedes completarlo ahora o registrarlo así y editarlo después desde Pedidos.</p><div class="row"><button class="btn sec" data-a="closeModal" style="flex:1">Completar</button><button class="btn" id="sAsi" style="flex:1">Registrar así</button></div></div>`,s=>{$("#sAsi",s).onclick=()=>{closeModal();sell(true)}});return}}
