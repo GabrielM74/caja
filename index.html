@@ -388,9 +388,9 @@ async function refresh(){if(!S.token)return;if(refreshing||S.saving){S.needRefre
   refreshing=false;if(S.needRefresh&&!S.saving){S.needRefresh=false;refresh()}}
 
 
-function workersFor(date){const d=S.days[date]||{},ov=d.workers||{};
-  const list=cfg().workers.map(w=>({...w,nombre:"",trabajo:true,pago:"efectivo",...(ov[w.id]||{})}));
-  Object.keys(ov).forEach(id=>{if(ov[id]&&ov[id].rol&&!list.find(w=>w.id===id))list.push({id,...ov[id]})});return list}
+function workersFor(date){const d=S.days[date]||{},ov=d.workers||{};const cerrado=!!d.closed;
+  const list=cfg().workers.map(w=>{const o={...(ov[w.id]||{})};if(!cerrado){delete o.rol;delete o.sumaDom}return{...w,nombre:"",trabajo:true,pago:"efectivo",...o}});
+  if(cerrado)Object.keys(ov).forEach(id=>{if(ov[id]&&ov[id].rol&&!list.find(w=>w.id===id))list.push({id,...ov[id]})});return list}
 const INACTIVOS=["espera","perdida","descartada","revendida"];
 const activa=s=>!INACTIVOS.includes(s.estado);
 const noPagaPatch=s=>({estado:"espera",listoTs:Date.now(),cancelada:{ts:Date.now(),motivo:"No paga"+(s.cliente?" · "+s.cliente:"")+" (familiar o cortesía)",noPaga:true,eraPagado:false,pagosAntes:{}}});
@@ -478,7 +478,7 @@ function startAnexo(date,id){const s=S.days[date]?.sales?.[id];if(!s)return;if(i
  if(S.cart.length&&!S.anexo)ask("Tienes productos en Vender sin registrar. ¿Descartarlos para agregar al pedido #"+(s.num||"")+"?","Descartar y seguir",go,false);else go()}
 function anexarVenta(){const A=S.anexo,s=anexoSale();if(!s){S.anexo=null;render();return toast("Ese pedido ya no existe.",true)}if(isClosed(A.date))return toast("Ese día ya está cerrado. Reábrelo para agregar productos.",true);if(!S.cart.length)return;
  const T=cartTotals();const ronda=Math.max(1,...(s.items||[]).map(i=>+i.ronda||1))+1;
- const nuevos=S.cart.map(l=>({pid:l.pid,name:l.name,price:l.price,qty:l.qty,ronda,...(l.oiid?{oiid:l.oiid,opc:l.opc}:{}),...(congelado()?{noStock:true}:{}),...(l.pid&&prod(l.pid)&&+prod(l.pid).price>l.price?{lista:+prod(l.pid).price}:{}),...((l.salsas||[]).length?{salsas:l.salsas}:{}),...((l.sin||[]).length?{sin:l.sin}:{}),...((l.con||[]).length&&S.tipo==="local"?{con:l.con}:{})}));
+ const nuevos=S.cart.map(l=>({pid:l.pid,name:l.name,price:l.price,qty:l.qty,ronda,...(l.oiid?{oiid:l.oiid,opc:l.opc}:{}),...(congelado()?{noStock:true}:{}),...(l.pid&&prod(l.pid)&&precioLista(l)>l.price?{lista:precioLista(l)}:{}),...((l.salsas||[]).length?{salsas:l.salsas}:{}),...((l.sin||[]).length?{sin:l.sin}:{}),...((l.con||[]).length&&S.tipo==="local"?{con:l.con}:{})}));
  const patch={items:[...(s.items||[]),...nuevos],subtotal:(+(s.subtotal??s.total)||0)+T.sub,total:(+s.total||0)+T.total,anexoTs:Date.now()};
  if(activa(s)&&s.estado!=="pendiente")patch.estado="pendiente";
  if(S.nota.trim())patch.nota=[s.nota,S.nota.trim()].filter(Boolean).join(" · ");
@@ -497,7 +497,7 @@ function vVender(){
   const enC=new Set(fo.flatMap(c=>c.L.map(p=>p.id)));
   const inCart=pid=>S.cart.filter(l=>l.pid===pid).reduce((a,l)=>a+l.qty,0);
   const T=cartTotals();const n=S.cart.reduce((a,l)=>a+l.qty,0);
-  const noPrice=act.filter(p=>!(+p.price>0)).length;
+  const noPrice=act.filter(p=>!pRango(p)).length;
   const pend=diaSinCerrar();
   return `<div class="posgrid">
   <section class="stack" aria-label="Productos">
@@ -506,9 +506,9 @@ function vVender(){
     ${pend&&pend!==S.date?`<div class="banner">El ${fDate(pend,true)} quedó sin cerrar. <button class="btn ghost" data-a="goDay" data-v="${pend}">Ir a cerrarlo</button></div>`:""}
     ${noPrice?`<div class="banner">${noPrice} productos no tienen precio todavía. <button class="btn ghost" data-a="tab" data-v="catalogo">Ponerles precio</button></div>`:""}
     <div class="search"><input id="q" placeholder="Buscar producto (ej. salchi xl, hit)" value="${esc(S.q)}" autocomplete="off"><button class="btn sec" data-a="libre">+ Otro</button><button class="btn sec" data-a="carpetas" aria-label="Organizar carpetas" title="Organizar carpetas">🗂</button></div>
-    ${list.length?(()=>{const tP=p=>{const q=inCart(p.id);return `<button class="tile cat-${esc(p.cat)}" data-a="add" data-id="${p.id}">${q?`<span class="q">${q}</span>`:""}<span class="n">${esc(p.name)}</span><span class="p ${+p.price>0?"":"zero"}">${+p.price>0?money(p.price):"Sin precio"}</span></button>`};
+    ${list.length?(()=>{const tP=p=>{const q=inCart(p.id);return `<button class="tile cat-${esc(p.cat)}" data-a="add" data-id="${p.id}">${q?`<span class="q">${q}</span>`:""}<span class="n">${esc(p.name)}</span><span class="p ${pRango(p)?"":"zero"}">${precioTxt(p)}</span></button>`};
       if(q)return `<div class="tiles">${list.map(tP).join("")}</div>`;
-      return `<div class="tiles">${fo.map(c=>{const op=S.fopen===c.id;const qn=c.L.reduce((a,p)=>a+inCart(p.id),0);const pr=c.L.map(p=>+p.price||0).filter(x=>x>0);const mi=Math.min(...pr),ma=Math.max(...pr);
+      return `<div class="tiles">${fo.map(c=>{const op=S.fopen===c.id;const qn=c.L.reduce((a,p)=>a+inCart(p.id),0);const pr=c.L.map(pRango).filter(Boolean).flatMap(r=>[r.mi,r.ma]);const mi=Math.min(...pr),ma=Math.max(...pr);
         return `<button class="tile fold" data-a="carp" data-v="${c.id}" aria-expanded="${op}">${qn?`<span class="q">${qn}</span>`:""}<span class="n">🗂 ${esc(c.n)}</span><span class="p">${c.L.length} ${c.L.length===1?"opción":"opciones"}${pr.length?` · ${mi===ma?money(mi):"desde "+money(mi)}`:""}</span><span class="ch" aria-hidden="true">▾</span></button>${op?`<div class="fpanel">${c.L.map(tP).join("")}<button class="btn ghost small fedit" data-a="carpEdit" data-v="${c.id}">✎ Editar carpeta</button></div>`:""}`}).join("")}${act.filter(p=>!enC.has(p.id)).map(tP).join("")}</div>`})()
       :`<div class="empty">${S.products.length?`No hay productos que coincidan con “${esc(S.q)}”.`:"Aún no hay productos. Agrégalos en Catálogo."}</div>`}
   </section>
@@ -1251,7 +1251,7 @@ function mCierre(){const date=S.date;const c0=calcDay(date);
     if(t==="repuesto")contado=String(num(contado)+v);if(t==="retirado")contado=String(num(contado)-v);
     toast(t==="repuesto"?"Faltante repuesto: la caja cuadra":t==="retirado"?"Sobrante retirado: la caja cuadra":t==="perdida"?"Pérdida registrada":"Ingreso extra registrado");setTimeout(draw,0)});
    $("#z_ok",s).onclick=()=>{const c2=calcDay(date);const dif=num(contado)-c2.efectivoEsperado;if(Math.abs(dif)>=1)return draw();
-    const w={};c2.workers.forEach(x=>w[x.id]={rol:x.rol,base:+x.base||0,sumaDom:!!x.sumaDom,nombre:x.nombre||"",trabajo:!!x.trabajo,pago:x.pago||"efectivo"});
+    const w={};c2.workers.forEach(x=>w[x.id]={rol:x.rol,base:+x.base||0,sumaDom:!!x.sumaDom,nombre:x.nombre||"",trabajo:!!x.trabajo,pago:x.pago||"efectivo"});Object.keys((S.days[date]||{}).workers||{}).forEach(id=>{if(!w[id])w[id]=null});
     dayUpdate(date,{closed:true,workers:w,cajaInicial:+c2.cajaInicial||0,cierre:{contado:num(contado),esperado:c2.efectivoEsperado,balance:c2.balance,perdidas:c2.perdidas,descuentos:c2.tDesc,difPagos:c2.difT,baseManana:num(baseManana),nota,at:Date.now()}});
     closeModal();toast(date===workDate()?"Día finalizado y guardado. El siguiente día arranca en limpio.":"Día finalizado y guardado.")}};
   draw();modalRedraw=draw})}
@@ -1317,10 +1317,10 @@ function mProduct(id,onDone){const p=id?clone(prod(id)):{id:uid("p"),name:"",cat
  $("#r_add",s).onclick=()=>{const f=S.insumos.find(i=>i.activo!==false);if(!f)return toast("Primero crea insumos.",true);p.receta.push({iid:f.id,qty:1});draw()};
  const insU=()=>S.insumos.filter(i=>i.activo!==false&&i.unit==="unidad").sort((a,b)=>a.name.localeCompare(b.name,"es"));
  const pName=()=>($("#p_n",s).value||p.name||"").trim();
- const drawO=()=>{$("#o_list",s).innerHTML=ops.map((o,k)=>`<div class="row" style="flex-wrap:nowrap;gap:6px"><input data-on="${k}" value="${esc(o.n)}" style="width:34%;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:8px"><select data-oi="${k}" style="flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:8px"><option value="">➕ Crear insumo «${esc((pName()+" "+o.n).trim())}»</option>${insU().map(i=>`<option value="${i.id}" ${i.id===o.iid?"selected":""}>${esc(i.name)}</option>`).join("")}</select><button type="button" class="iconbtn" data-od="${k}" aria-label="Quitar">✕</button></div>`).join("")||`<div class="small muted">Sin sabores: se vende con su receta normal.</div>`};drawO();
- $("#o_add",s).onclick=()=>{const names=$("#o_txt",s).value.split(",").map(x=>x.trim()).filter(Boolean);names.forEach(n=>{if(ops.some(o=>norm(o.n)===norm(n)))return;const m=bestMatch((pName()+" "+n).trim(),insU());const ok=m&&toks(m.name).some(t=>toks(n).some(u=>tokEq(t,u)));ops.push({n:n.charAt(0).toUpperCase()+n.slice(1),iid:ok?m.id:""})});$("#o_txt",s).value="";drawO()};
+ const drawO=()=>{const bp=num($("#p_p",s).value);const inp="border:1.5px solid var(--line);border-radius:10px;padding:8px;min-width:0";$("#o_list",s).innerHTML=ops.map((o,k)=>`<div class="stack" style="gap:4px;padding-bottom:6px;border-bottom:1px dashed #BFD9F5"><div class="row" style="flex-wrap:nowrap;gap:6px"><input data-on="${k}" value="${esc(o.n)}" aria-label="Sabor" style="flex:1;${inp}"><input data-opr="${k}" inputmode="numeric" value="${+o.price>0?o.price:""}" placeholder="${bp>0?money(bp):"Precio"}" aria-label="Precio de este sabor" style="width:104px;${inp}"><button type="button" class="iconbtn" data-od="${k}" aria-label="Quitar">✕</button></div><select data-oi="${k}" style="width:100%;${inp}"><option value="">➕ Crear insumo «${esc((pName()+" "+o.n).trim())}»</option>${insU().map(i=>`<option value="${i.id}" ${i.id===o.iid?"selected":""}>${esc(i.name)}</option>`).join("")}</select></div>`).join("")+(ops.length?`<div class="small muted">El precio es opcional: si lo dejas vacío, ese sabor cobra el precio del producto.</div>`:"")||`<div class="small muted">Sin sabores: se vende con su receta normal.</div>`};drawO();
+ $("#o_add",s).onclick=()=>{const names=$("#o_txt",s).value.split(",").map(x=>x.trim()).filter(Boolean);names.forEach(n=>{if(ops.some(o=>norm(o.n)===norm(n)))return;const m=bestMatch((pName()+" "+n).trim(),insU());const ok=m&&!ops.some(o=>o.iid===m.id)&&toks(n).every(u=>toks(m.name).some(t=>tokEq(t,u)));ops.push({n:n.charAt(0).toUpperCase()+n.slice(1),iid:ok?m.id:""})});$("#o_txt",s).value="";drawO()};
  $("#o_txt",s).onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();$("#o_add",s).click()}};
- $("#o_list",s).oninput=e=>{const t=e.target;if(t.dataset.on!=null)ops[+t.dataset.on].n=t.value};
+ $("#o_list",s).oninput=e=>{const t=e.target;if(t.dataset.on!=null)ops[+t.dataset.on].n=t.value;if(t.dataset.opr!=null)ops[+t.dataset.opr].price=num(t.value)};
  $("#o_list",s).onchange=e=>{const t=e.target;if(t.dataset.oi!=null)ops[+t.dataset.oi].iid=t.value};
  $("#o_list",s).onclick=e=>{const b=e.target.closest("[data-od]");if(b){ops.splice(+b.dataset.od,1);drawO()}};
  $("#c_add",s).onclick=()=>{const f=S.products.find(x=>x.id!==p.id);if(f){p.incluye.push({pid:f.id,qty:1});draw()}};
@@ -1337,7 +1337,7 @@ function mProduct(id,onDone){const p=id?clone(prod(id)):{id:uid("p"),name:"",cat
   Object.assign(p,{name,cat,price:num($("#p_p",s).value),activo:$("#p_a",s).checked,receta:p.receta.filter(r=>r.iid&&+r.qty>0),incluye:p.incluye.filter(c=>c.pid&&+c.qty>0),upd:Date.now()});
   if(isNew)S.products.push(p);else S.products=S.products.map(x=>x.id===p.id?p:x);
   const okOps=ops.filter(o=>o.n.trim());let nuevosI=0;okOps.forEach(o=>{o.n=o.n.trim();if(!o.iid||!ins(o.iid)){const ni={id:uid("i"),name:`${name} ${o.n}`,unit:"unidad",stockIni:0,min:0,activo:true,upd:Date.now()};S.insumos.push(ni);o.iid=ni.id;nuevosI++}});
-  const prevOps=(cfg().opciones||{})[p.id]||[];const O={...(cfg().opciones||{})};if(okOps.length)O[p.id]=okOps.map(o=>({n:o.n,iid:o.iid}));else delete O[p.id];
+  const prevOps=(cfg().opciones||{})[p.id]||[];const O={...(cfg().opciones||{})};if(okOps.length)O[p.id]=okOps.map(o=>({n:o.n,iid:o.iid,...(+o.price>0?{price:+o.price}:{})}));else delete O[p.id];
   saveCatalog("prod");if(nuevosI)saveCatalog("ins");let cfgCh=false;if(JSON.stringify(prevOps)!==JSON.stringify(O[p.id]||[])){S.cfg={...cfg(),opciones:O};cfgCh=true}
   {const fv=$("#p_f",s).value;const fn=$("#p_fn",s).value.trim();const prevF=carpetaDe(p.id)?.id||"";let N=clone(carpetas());let tgt=fv;
    if(fv==="+"&&fn){tgt=uid("c");N.push({id:tgt,n:fn,pids:[]})}else if(fv==="+")tgt=prevF;
@@ -1545,18 +1545,22 @@ document.addEventListener("input",e=>{const t=e.target;if(!t.id)return;
  else if(t.id.startsWith("vmx_")){const k=t.id.slice(4);S.mix[k]=t.value;if(k===S.mixResto)S.mixAuto=false;render()}});
 document.addEventListener("change",e=>{const t=e.target;if(t.id==="dayInput"&&t.value){S.date=t.value;S.dateManual=t.value!==workDate();render()}else if(t.id==="month"){S.month=t.value;S.histDia=null;S.gDia=null;render()}else if(t.id==="histDia"&&t.value){S.histDia=t.value;render()}else if(t.id==="gDia"&&t.value){S.gDia=t.value;render()}else if(t.id==="importFile"&&t.files[0]){onImport(t.files[0]);t.value=""}else if(t.id==="sonidoFile"&&t.files[0]){subirSonidoUI(t.files[0]);t.value=""}});
 const opcDe=pid=>((cfg().opciones||{})[pid]||[]).filter(o=>o&&o.n&&ins(o.iid));
+const oPrecio=(p,o)=>+o?.price>0?+o.price:(+p?.price||0);
+const precioLista=l=>{const p=prod(l.pid);if(!p)return 0;const o=l.oiid?opcDe(l.pid).find(x=>x.iid===l.oiid):null;return o?oPrecio(p,o):(+p.price||0)};
+function pRango(p){const ops=opcDe(p.id);const L=ops.length?ops.map(o=>oPrecio(p,o)):[+p.price||0];const v=L.filter(x=>x>0);return v.length?{mi:Math.min(...v),ma:Math.max(...v)}:null}
+function precioTxt(p){const r=pRango(p);return r?(r.mi===r.ma?money(r.mi):"desde "+money(r.mi)):"Sin precio"}
 function opcUso(iid){const O=cfg().opciones||{};for(const pid in O){const o=(O[pid]||[]).find(x=>x.iid===iid);const pr=prod(pid);if(o&&pr&&pr.activo!==false)return{p:pr,o}}return null}
 function mOpcion(pid,onPick){const p=prod(pid),ops=opcDe(pid),st=congelado()?null:stockAll();
- openModal(p.name+" · ¿cuál?",`<div class="stack"><div class="opgrid">${ops.map((o,k)=>{const q=st?st[o.iid]?.actual:null;return `<button type="button" class="tile" data-op="${k}" style="min-height:64px"><span class="n">${esc(o.n)}</span>${q!=null?`<span class="small ${q<=0?"neg":"muted"}">${q<=0?"Agotado":"Quedan "+trimN(q)}</span>`:""}</button>`}).join("")}</div>
+ openModal(p.name+" · ¿cuál?",`<div class="stack"><div class="opgrid">${ops.map((o,k)=>{const q=st?st[o.iid]?.actual:null;return `<button type="button" class="tile" data-op="${k}" style="min-height:64px"><span class="n">${esc(o.n)}</span>${ops.some(x=>+x.price>0)?`<span class="p">${money(oPrecio(p,o))}</span>`:""}${q!=null?`<span class="small ${q<=0?"neg":"muted"}">${q<=0?"Agotado":"Quedan "+trimN(q)}</span>`:""}</button>`}).join("")}</div>
   <button class="btn ghost" data-a="closeModal">Cancelar</button></div>`,sh=>{sh.querySelectorAll("[data-op]").forEach(b=>b.onclick=()=>{closeModal();onPick(ops[+b.dataset.op])})})}
 function tryAdd(id){if(opcDe(id).length)return mOpcion(id,o=>tryAddOp(id,o));const p=prod(id);const l=S.cart.find(x=>x.pid===id&&x.price===(+p.price||0)&&!(x.salsas||[]).length&&!(x.sin||[]).length&&!(x.con||[]).length);
  const next=l?S.cart.map(x=>x===l?{...x,qty:x.qty+1}:x):[...S.cart,{pid:id,qty:1}];
  const sh=shortages(next).filter(x=>!S.ackShort.includes(x.i.id));
  const doAdd=()=>{const l2=S.cart.find(x=>x.pid===id&&x.price===(+p.price||0)&&!(x.salsas||[]).length&&!(x.sin||[]).length&&!(x.con||[]).length);if(l2)l2.qty++;else S.cart.push({pid:id,name:p.name,price:+p.price||0,qty:1});render()};
  if(sh.length)mFalta(id,sh,doAdd);else doAdd()}
-function tryAddOp(id,o){const p=prod(id);const same=x=>x.pid===id&&x.oiid===o.iid&&x.price===(+p.price||0)&&!(x.salsas||[]).length&&!(x.sin||[]).length&&!(x.con||[]).length;const l=S.cart.find(same);
+function tryAddOp(id,o){const p=prod(id);const pr=oPrecio(p,o);const same=x=>x.pid===id&&x.oiid===o.iid&&x.price===pr&&!(x.salsas||[]).length&&!(x.sin||[]).length&&!(x.con||[]).length;const l=S.cart.find(same);
  const next=l?S.cart.map(x=>x===l?{...x,qty:x.qty+1}:x):[...S.cart,{pid:id,oiid:o.iid,qty:1}];const sh=shortages(next).filter(x=>!S.ackShort.includes(x.i.id));
- const doAdd=()=>{const l2=S.cart.find(same);if(l2)l2.qty++;else S.cart.push({pid:id,name:`${p.name} (${o.n})`,price:+p.price||0,qty:1,opc:o.n,oiid:o.iid});render()};
+ const doAdd=()=>{const l2=S.cart.find(same);if(l2)l2.qty++;else S.cart.push({pid:id,name:`${p.name} (${o.n})`,price:pr,qty:1,opc:o.n,oiid:o.iid});render()};
  if(sh.length)mFalta(id,sh,doAdd);else doAdd()}
 function mFalta(pid,sh,doAdd){const p=prod(pid);
  openModal("No alcanza el inventario",`<div class="stack"><p>Para <b>${esc(p?.name||"")}</b> no hay suficiente:</p>
@@ -1577,7 +1581,7 @@ function sell(force,aceptaDif){if(S.anexo)return anexarVenta();if(bloqueado())re
  let difPago=0,metMix="";if(S.pay==="mixto"){const r=mixResolve(S.mix,T.cobrar,S.mixResto);if(r.err)return toast(r.err,true);if(r.dif&&!aceptaDif)return mixAlerta(r.dif,()=>{S.cartOpen=true;render()},()=>sell(true,true));pagos=r.pagos;difPago=r.dif;metMix=r.met}
  else if(S.pay==="despues"||S.pay==="nopaga")pagos={};else pagos={[S.pay]:T.cobrar};
  const id=uid("v");const numero=vals(S.days[S.date]?.sales).reduce((a,x)=>Math.max(a,+x.num||0),0)+1;myOrders.add(id);
- const sale={id,num:numero,ts:Date.now(),hora:hora(),items:S.cart.map(l=>({pid:l.pid,name:l.name,price:l.price,qty:l.qty,...(l.oiid?{oiid:l.oiid,opc:l.opc}:{}),...(congelado()?{noStock:true}:{}),...(l.pid&&prod(l.pid)&&+prod(l.pid).price>l.price?{lista:+prod(l.pid).price}:{}),...((l.salsas||[]).length?{salsas:l.salsas}:{}),...((l.sin||[]).length?{sin:l.sin}:{}),...((l.con||[]).length&&S.tipo==="local"?{con:l.con}:{})})),subtotal:T.sub,total:T.total,domicilio:T.dom,metodo:S.pay==="despues"||S.pay==="nopaga"?"":S.pay==="mixto"?metMix:S.pay,pagos,...(difPago?{difPago}:{}),pagado:S.pay!=="despues"&&S.pay!=="nopaga",...(S.pay!=="despues"&&S.pay!=="nopaga"?{pagadoTs:Date.now()}:{}),...(S.pay==="nopaga"?{noPaga:true}:{}),nota:S.nota.trim(),cliente:S.cliente.trim(),tipo:S.tipo,mesa:S.tipo==="local"?S.mesa:"",...(S.tipo==="domicilio"?{direccion:S.dir.trim(),telefono:S.tel.trim()}:{}),...(S.cartCompras.length?{compras:S.cartCompras}:{}),estado:"pendiente"};
+ const sale={id,num:numero,ts:Date.now(),hora:hora(),items:S.cart.map(l=>({pid:l.pid,name:l.name,price:l.price,qty:l.qty,...(l.oiid?{oiid:l.oiid,opc:l.opc}:{}),...(congelado()?{noStock:true}:{}),...(l.pid&&prod(l.pid)&&precioLista(l)>l.price?{lista:precioLista(l)}:{}),...((l.salsas||[]).length?{salsas:l.salsas}:{}),...((l.sin||[]).length?{sin:l.sin}:{}),...((l.con||[]).length&&S.tipo==="local"?{con:l.con}:{})})),subtotal:T.sub,total:T.total,domicilio:T.dom,metodo:S.pay==="despues"||S.pay==="nopaga"?"":S.pay==="mixto"?metMix:S.pay,pagos,...(difPago?{difPago}:{}),pagado:S.pay!=="despues"&&S.pay!=="nopaga",...(S.pay!=="despues"&&S.pay!=="nopaga"?{pagadoTs:Date.now()}:{}),...(S.pay==="nopaga"?{noPaga:true}:{}),nota:S.nota.trim(),cliente:S.cliente.trim(),tipo:S.tipo,mesa:S.tipo==="local"?S.mesa:"",...(S.tipo==="domicilio"?{direccion:S.dir.trim(),telefono:S.tel.trim()}:{}),...(S.cartCompras.length?{compras:S.cartCompras}:{}),estado:"pendiente"};
  S.cart=[];S.dom=S.override=S.recibido=S.nota=S.cliente=S.mesa=S.dir=S.tel="";S.tipo="local";S.cartCompras=[];S.ackShort=[];S.mix={efectivo:"",nequi:"",transferencia:""};S.mixResto="";S.mixAuto=true;S.cartOpen=false;S.q="";
  dayUpdate(S.date,{sales:{[id]:sale}}).then(()=>{},()=>{});const fecha=S.date;toast(`Pedido #${numero} registrado · ${S.pay==="nopaga"?"no paga (familiar)":S.pay==="despues"?"sin pagar":money(T.cobrar)}`);S.pay="efectivo";render();if(cfg().ofrecerImprimir!==false&&CAN_PRINT)mPrint(fecha,id,`Pedido #${numero} registrado`)}
 
