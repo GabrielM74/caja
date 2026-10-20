@@ -1,11 +1,35 @@
-// Instalador de la app Caja Aquí Fue. Guarda solo el ícono y la pantalla de carga;
-// la caja y los datos siempre vienen en vivo de Google.
-const CACHE = "aquifue-app-v3";
-const ARCHIVOS = ["./", "index.html", "manifest.webmanifest", "logo.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"];
-self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS))); self.skipWaiting(); });
-self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x))))); self.clients.claim(); });
+// Caja Aquí Fue - service worker
+// Siempre pide la versión más reciente a internet. Solo usa la copia guardada si no hay conexión.
+const CACHE = "aquifue-20261019-830pm";
+
+self.addEventListener("install", e => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", e => {
+  e.waitUntil(
+    caches.keys()
+      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
 self.addEventListener("fetch", e => {
-  const url = new URL(e.request.url);
-  if (url.origin !== location.origin) return; // Google y la caja: siempre en vivo
-  e.respondWith(fetch(e.request).then(r => { const copia = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copia)); return r; }).catch(() => caches.match(e.request)));
+  const r = e.request;
+  if (r.method !== "GET") return;
+  const u = new URL(r.url);
+  if (u.origin !== self.location.origin) return;
+  e.respondWith(
+    fetch(r, { cache: "no-store" })
+      .then(res => {
+        if (res && res.ok) {
+          const copia = res.clone();
+          caches.open(CACHE).then(c => c.put(r, copia));
+        }
+        return res;
+      })
+      .catch(() => caches.match(r)
+        .then(m => m || caches.match("index.html"))
+        .then(m => m || caches.match("./")))
+  );
 });

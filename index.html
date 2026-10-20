@@ -120,6 +120,7 @@ td.r,th.r{text-align:right}
 /* POS */
 .posgrid{display:grid;gap:16px}
 .posgrid>*{min-width:0}
+.htabs button{padding:10px 8px;font-size:1rem}
 .rl3{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:6px}.rl2{display:grid;grid-template-columns:1.3fr 1fr;gap:6px}
 .rl3 .f input,.rl3 .f select,.rl2 .f input,.rl2 .f select{padding:8px 9px}
 .sbars{display:flex;align-items:flex-end;gap:3px;height:140px;padding-top:8px}
@@ -645,26 +646,45 @@ function salidasDia(k){if(!S.days[k])return[];const c=calcDay(k),out=[];
  return out.filter(x=>x.v>0)}
 function periodoDias(per,ref,month){if(per==="dia")return[ref];if(per==="semana"){const l=dAdd(ref,-dDow(ref));return Array.from({length:7},(_,i)=>dAdd(l,i))}
  const [y,m]=month.split("-").map(Number),n=new Date(Date.UTC(y,m,0)).getUTCDate();return Array.from({length:n},(_,i)=>`${month}-${String(i+1).padStart(2,"0")}`)}
-function vGastosHist(month,defDia){const gp=S.gPer||"mes",gd=S.gDia||defDia,days=periodoDias(gp,gd,month);
+function gLeyenda(cats,col){const seen=new Set();return `<div class="row" style="gap:6px 12px">${cats.filter(c=>{const k=col[c]===GOTRA?"__o":c;if(seen.has(k))return false;seen.add(k);return true}).map(c=>`<span class="small" style="display:inline-flex;align-items:center;gap:5px"><i style="width:10px;height:10px;border-radius:3px;background:${col[c]};display:inline-block"></i>${col[c]===GOTRA?"Otras":esc(c)}</span>`).join("")}</div>`}
+function vGastosMes(month,defDia){const days=periodoDias("mes",null,month),[y,m]=month.split("-").map(Number);
+ const prevMonth=new Date(Date.UTC(y,m-2,1)).toISOString().slice(0,7);
+ const items=days.flatMap(salidasDia),prev=periodoDias("mes",null,prevMonth).flatMap(salidasDia);
+ const total=items.reduce((a,x)=>a+x.v,0),ptotal=prev.reduce((a,x)=>a+x.v,0);
+ const by={};items.forEach(x=>by[x.cat]=(by[x.cat]||0)+x.v);const cats=Object.keys(by).sort((a,b)=>by[b]-by[a]);
+ const col={};cats.forEach((c,i)=>col[c]=i<GCOL.length?GCOL[i]:GOTRA);
+ const grp=k=>k==="Compras de insumos"?"compras":k==="Trabajadores"?"trab":k==="Faltantes de caja"?"falt":"gastos";
+ const G={gastos:0,compras:0,trab:0,falt:0};items.forEach(x=>G[grp(x.cat)]+=x.v);
+ const tInv=days.reduce((a,k)=>a+(S.days[k]?calcDay(k).tInv:0),0),ventas=days.reduce((a,k)=>a+(S.days[k]?calcDay(k).ventas+calcDay(k).dom:0),0);
+ const per=days.map(k=>{const o={};items.filter(x=>x.k===k).forEach(x=>o[x.cat]=(o[x.cat]||0)+x.v);const t=Object.values(o).reduce((a,b)=>a+b,0);return{k,o,t,n:items.filter(x=>x.k===k).length}});
+ const mx=Math.max(1,...per.map(d=>d.t)),dConG=per.filter(d=>d.t>0);
+ const vpct=ptotal?Math.round((total-ptotal)/ptotal*100):null;
+ return `<div class="hero" style="background:#2C3E50"><div><div class="label" style="color:#cfd9e3">Gastos y salidas de ${MESL[m-1]}</div><div class="big">${money(total)}</div><div class="small" style="color:#cfd9e3">${dConG.length} días con gastos${vpct!==null?` · ${vpct>0?"↑":vpct<0?"↓":"="} ${Math.abs(vpct)} % frente al mes anterior (${money(ptotal)})`:""}</div></div></div>
+  <div class="kpis"><div class="kpi"><span class="label">Gastos</span><b>${money(G.gastos)}</b></div><div class="kpi"><span class="label">Compras de insumos</span><b>${money(G.compras)}</b></div><div class="kpi"><span class="label">Trabajadores</span><b>${money(G.trab)}</b></div>${G.falt?`<div class="kpi"><span class="label">Faltantes de caja</span><b>${money(G.falt)}</b></div>`:""}${tInv?`<div class="kpi" style="background:#EEF5FD;border-color:#BFD9F5"><span class="label">Inversión inventario</span><b>${money(tInv)}</b><span class="small muted">No cuenta como gasto</span></div>`:""}<div class="kpi"><span class="label">Ventas del mes</span><b>${money(ventas)}</b><span class="small muted">${ventas?`Los gastos son el ${Math.round(total/ventas*100)} %`:"Para comparar"}</span></div></div>
+  <section class="card stack"><h3>Gastos por día</h3>${total?`<div class="sbars">${per.map(d=>`<div class="sbar" title="${fDate(d.k)}: ${money(d.t)}" style="height:${d.t?Math.max(2,d.t/mx*100):0}%">${cats.filter(c=>d.o[c]).reverse().map(c=>`<span style="height:${d.o[c]/d.t*100}%;background:${col[c]}"></span>`).join("")}</div>`).join("")}</div>
+   <div class="row between small muted"><span>1</span><span>${Math.ceil(days.length/2)}</span><span>${days.length}</span></div>${gLeyenda(cats,col)}`:`<div class="empty">Sin gastos este mes.</div>`}</section>
+  ${vGastosHist(month,defDia,col,true)}
+  <div class="grid2"><section class="card stack"><h3>Días</h3>${dConG.length?`<div class="list">${dConG.slice().reverse().map(d=>{const top=Object.keys(d.o).sort((a,b)=>d.o[b]-d.o[a])[0];return `<button class="li" data-a="goDay" data-v="${d.k}" style="border-left:0;border-right:0;border-bottom:0;background:none;text-align:left;width:100%"><div class="grow"><div class="t">${fDate(d.k)}</div><div class="small muted">${d.n} ${d.n===1?"registro":"registros"} · lo mayor: ${esc(top)}</div></div><b class="amt neg">−${money(d.t)}</b></button>`}).join("")}</div>`:`<div class="empty">Sin gastos este mes.</div>`}</section></div>`}
+function vGastosHist(month,defDia,colMap,ocultarMes){const gp=S.gPer||"mes",gd=S.gDia||defDia,days=periodoDias(gp,gd,month);
  const prevMonth=(()=>{const [y,m]=month.split("-").map(Number);const d=new Date(Date.UTC(y,m-2,1));return d.toISOString().slice(0,7)})();
  const prevDays=gp==="mes"?periodoDias("mes",null,prevMonth):gp==="semana"?days.map(k=>dAdd(k,-7)):[dAdd(gd,-1)];
  const items=days.flatMap(salidasDia),prev=prevDays.flatMap(salidasDia);
  const by={},pby={};items.forEach(x=>by[x.cat]=(by[x.cat]||0)+x.v);prev.forEach(x=>pby[x.cat]=(pby[x.cat]||0)+x.v);
  const cats=Object.keys(by).sort((a,b)=>by[b]-by[a]),total=items.reduce((a,x)=>a+x.v,0),ptotal=prev.reduce((a,x)=>a+x.v,0);
- const col={};cats.forEach((c,i)=>col[c]=i<GCOL.length?GCOL[i]:GOTRA);
+ const col={};let ci=0;const usados=new Set(Object.values(colMap||{}));const libres=GCOL.filter(x=>!usados.has(x));cats.forEach(c=>{col[c]=(colMap&&colMap[c])||libres[ci++]||GOTRA});
  const pct=(a,b)=>!b?(a?`<span class="chip" title="No hubo en el periodo anterior">nuevo</span>`:""):(()=>{const v=Math.round((a-b)/b*100);return v===0?`<span class="chip gray">= igual</span>`:`<span class="chip ${v>0?"":"ok"}">${v>0?"↑":"↓"} ${Math.abs(v)} %</span>`})();
  const prevTxt=gp==="mes"?"al mes anterior":gp==="semana"?"a la semana anterior":"al día anterior";
  const pTxt=gp==="dia"?fDate(gd,true):gp==="semana"?`Semana del ${fDate(days[0])} al ${fDate(days[6])}`:(()=>{const [y,m]=month.split("-").map(Number);return `${MESL[m-1]} ${y}`})();
  let chart="";
- if(gp==="dia"){chart=total?`<div style="display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--line)">${cats.map(c=>`<div title="${esc(c)}: ${money(by[c])}" style="width:${by[c]/total*100}%;background:${col[c]}"></div>`).join("")}</div>`:""}
+ if(gp==="mes"&&ocultarMes){chart=""}else if(gp==="dia"){chart=total?`<div style="display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--line)">${cats.map(c=>`<div title="${esc(c)}: ${money(by[c])}" style="width:${by[c]/total*100}%;background:${col[c]}"></div>`).join("")}</div>`:""}
  else{const per=days.map(k=>{const o={};items.filter(x=>x.k===k).forEach(x=>o[x.cat]=(o[x.cat]||0)+x.v);const t=Object.values(o).reduce((a,b)=>a+b,0);return{k,o,t}});const mx=Math.max(1,...per.map(d=>d.t));
   chart=`<div class="sbars">${per.map(d=>`<div class="sbar" title="${fDate(d.k)}: ${money(d.t)}" style="height:${d.t?Math.max(2,d.t/mx*100):0}%">${cats.filter(c=>d.o[c]).reverse().map(c=>`<span style="height:${d.o[c]/d.t*100}%;background:${col[c]}"></span>`).join("")}</div>`).join("")}</div>
   ${gp==="semana"?`<div class="sbars lbl">${["L","M","M","J","V","S","D"].map(l=>`<div>${l}</div>`).join("")}</div>`:`<div class="row between small muted"><span>1</span><span>${Math.ceil(days.length/2)}</span><span>${days.length}</span></div>`}`}
  const verTodo=!!S.fold.gTodo,lista=verTodo?cats:cats.slice(0,10);
- return `<section class="card stack"><div class="row between"><h3>Gastos y salidas</h3><div class="seg">${[["mes","Mes"],["semana","Semana"],["dia","Día"]].map(([k,l])=>`<button data-a="gPer" data-v="${k}" aria-pressed="${gp===k}">${l}</button>`).join("")}</div></div>
+ return `<section class="card stack"><div class="row between"><h3>Gastos por categoría</h3><div class="seg">${[["mes","Mes"],["semana","Semana"],["dia","Día"]].map(([k,l])=>`<button data-a="gPer" data-v="${k}" aria-pressed="${gp===k}">${l}</button>`).join("")}</div></div>
   ${gp!=="mes"?`<div class="row" style="flex-wrap:nowrap"><button class="btn sec" data-a="gMove" data-v="-1" aria-label="Anterior">‹</button><input type="date" id="gDia" value="${gd}" aria-label="Fecha" style="border:1.5px solid var(--line);border-radius:10px;padding:8px 9px;flex:1;min-width:0;background:var(--surface)"><button class="btn sec" data-a="gMove" data-v="1" aria-label="Siguiente">›</button></div>`:""}
   <div class="small muted">${esc(pTxt)} · <b>${items.length} registros · <span class="amt">${money(total)}</span></b>${ptotal||total?` · ${pct(total,ptotal)} frente ${prevTxt} (<span class="amt">${money(ptotal)}</span>)`:""}</div>
-  ${total?chart+`<div class="row" style="gap:6px 12px">${cats.slice(0,GCOL.length).map(c=>`<span class="small" style="display:inline-flex;align-items:center;gap:5px"><i style="width:10px;height:10px;border-radius:3px;background:${col[c]};display:inline-block"></i>${esc(c)}</span>`).join("")}${cats.length>GCOL.length?`<span class="small" style="display:inline-flex;align-items:center;gap:5px"><i style="width:10px;height:10px;border-radius:3px;background:${GOTRA};display:inline-block"></i>Otras</span>`:""}</div>
+  ${total?chart+`<div class="row" style="gap:6px 12px">${chart?gLeyenda(cats,col):""}</div>
   <div class="list">${lista.map(c=>{const open=!!(S.gOpen||{})[c],its=items.filter(x=>x.cat===c).sort((a,b)=>a.k<b.k?1:-1);return `<div><button class="li" data-a="gOpen" data-v="${esc(encodeURIComponent(c))}" style="width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;cursor:pointer"><i style="width:12px;height:12px;border-radius:4px;background:${col[c]};flex:none"></i><div class="grow"><div class="t">${esc(c)}</div><div class="small muted">${its.length} ${its.length===1?"registro":"registros"} · ${Math.round(by[c]/total*100)} % del total</div></div>${pct(by[c],pby[c]||0)}<b class="amt">${money(by[c])}</b><span class="caret" style="${open?"transform:rotate(180deg)":""}">▾</span></button>
    ${open?`<div style="padding:0 0 8px 22px">${its.map(x=>`<div class="row between small" style="padding:4px 0;border-top:1px dashed var(--line);flex-wrap:nowrap"><span style="min-width:0">${gp==="dia"?"":`<span class="muted">${fDate(x.k)}</span> · `}${esc(x.desc)}</span><b class="amt">${money(x.v)}</b></div>`).join("")}</div>`:""}</div>`}).join("")}</div>
   ${cats.length>10?`<button class="btn sec" data-a="gTodo">${verTodo?"Ver solo las 10 primeras":`Ver todas (${cats.length})`}</button>`:""}`:`<div class="empty">Sin gastos en este periodo.</div>`}
@@ -685,9 +705,12 @@ function vHist(){
   const pTxt=hp==="dia"?fDate(hd,true):hp==="semana"?`Semana del ${fDate(l0)} al ${fDate(l6)}`:`${MESL[m-1]} ${y}`;
   const sold=soldOn(pk),verTodo=!!S.fold.histTodo,top=verTodo?sold:sold.slice(0,10),tUn=sold.reduce((a,x)=>a+x.qty,0),tVal=sold.reduce((a,x)=>a+x.total,0);
   const sinV=S.products.filter(p=>p.activo!==false&&!sold.some(x=>x.name===p.name));
-  return `<div class="stack">
-  <div class="row between"><h2>Historial</h2><div class="row"><select id="month" class="btn sec" aria-label="Mes">${months.map(x=>{const [yy,mm]=x.split("-");return `<option value="${x}" ${x===S.month?"selected":""}>${MESL[+mm-1]} ${yy}</option>`}).join("")}</select>
+  const hTab=S.histTab||"ventas";
+  const head=`<div class="row between"><h2>Historial</h2><div class="row"><select id="month" class="btn sec" aria-label="Mes">${months.map(x=>{const [yy,mm]=x.split("-");return `<option value="${x}" ${x===S.month?"selected":""}>${MESL[+mm-1]} ${yy}</option>`}).join("")}</select>
     <button class="btn" data-a="export">${ICON.down} Descargar Excel</button></div></div>
+  <div class="seg full htabs">${[["ventas","💰 Ventas"],["gastos","🧾 Gastos"]].map(([k,l])=>`<button data-a="histTab" data-v="${k}" aria-pressed="${hTab===k}">${l}</button>`).join("")}</div>`;
+  if(hTab==="gastos")return `<div class="stack">${head}${vGastosMes(S.month,mk[mk.length-1]||S.date)}</div>`;
+  return `<div class="stack">${head}
   <div class="hero"><div><div class="label">Balance de ${MESL[m-1]}</div><div class="big">${money(tot.bal)}</div><div class="small" style="color:#ffe1dd">${cs.length} días con movimiento</div></div></div>
   <div class="kpis"><div class="kpi"><span class="label">Ventas</span><b>${money(tot.ventas)}</b></div><div class="kpi"><span class="label">Domicilios</span><b>${money(tot.dom)}</b></div>
    <div class="kpi"><span class="label">Gastos</span><b>${money(tot.tg)}</b></div><div class="kpi"><span class="label">Compras</span><b>${money(tot.tc)}</b></div>${tot.tInv?`<div class="kpi"><span class="label">Inversión inventario</span><b>${money(tot.tInv)}</b></div>`:""}<div class="kpi"><span class="label">Trabajadores</span><b>${money(tot.tw)}</b></div>${tot.perd?`<div class="kpi"><span class="label">Pérdidas (no vendido)</span><b>${money(tot.perd)}</b></div>`:""}</div>
@@ -703,7 +726,7 @@ function vHist(){
    ${top.length?`<div class="tbl"><table><thead><tr><th>#</th><th>Producto</th><th class="r">Cant.</th><th class="r">Valor</th></tr></thead><tbody>${top.map((t,k)=>`<tr><td class="muted">${k+1}</td><td style="white-space:normal">${esc(t.name)}</td><td class="r">${trimN(t.qty)}</td><td class="r">${money(t.total)}</td></tr>`).join("")}</tbody></table></div>
    ${sold.length>10?`<button class="btn sec" data-a="histTodo">${verTodo?"Ver solo los 10 primeros":`Ver todos (${sold.length})`}</button>`:""}`:`<div class="empty">Sin ventas en este periodo.</div>`}
    ${sinV.length&&(verTodo||sold.length<=10)?`<div class="small muted"><b>Sin ventas en este periodo (${sinV.length}):</b> ${esc(sinV.map(p=>p.name).join(", "))}</div>`:""}
-  </section>${vGastosHist(S.month,mk[mk.length-1]||S.date)}</div>`;
+  </section></div>`;
 }
 
 
@@ -762,7 +785,7 @@ function vAjustes(){const c=cfg();
    <div class="row"><button class="btn sec" data-a="export">${ICON.down} Descargar Excel</button><label class="btn sec" for="importFile">Cargar copia desde Excel</label><input type="file" id="importFile" accept=".xlsx,.xls" hidden></div></section>
   <section class="card stack"><h3>Clave de acceso</h3><p class="small muted">Usuario: <b>${esc(S.lockUser||"")}</b>. La clave la revisa el servidor. Se pide otra vez cada vez que se cierra la pestaña o el navegador${APP.dentro?". En la app puedes marcar \"Mantener sesión iniciada\" al entrar (dura 6 meses o hasta cambiar la clave)":""}.</p>
    <label class="f" style="max-width:320px"><span class="label">Bloquear sin uso después de</span><select id="autoLockCfg">${[[0,"No bloquear"],[5,"5 minutos"],[15,"15 minutos"],[30,"30 minutos"],[60,"1 hora"]].map(([v,l])=>`<option value="${v}" ${(+cfg().autoLock||0)===v?"selected":""}>${l}</option>`).join("")}</select></label>
-   <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section><p class="small muted" style="text-align:center">Versión de la caja: 19-oct-2026 · 8:30 pm</p>
+   <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section><p class="small muted" style="text-align:center">Versión de la caja: 19-oct-2026 · 9:00 pm</p>
   </div>`}
 
 
@@ -1393,7 +1416,8 @@ document.addEventListener("click",e=>{const vr=e.target.closest("[data-vresto]")
   case "editC":if(!bloqueado())mEditCompra(id);break;
   case "impInv":{const list=vals(S.days[S.date]?.purchases).filter(p=>!p.inversion&&/Excel/.test(p.nota||""));ask(`¿Marcar ${list.length} compras importadas del Excel como inventario inicial? Seguirán en el inventario pero no contarán en el balance del día. Su forma de pago no cambia.`,"Marcar",()=>{const patch={};list.forEach(p=>patch[p.id]={inversion:true});dayUpdate(S.date,{purchases:patch});toast("Compras marcadas como inventario inicial")},false);break}
   case "delC":ask("¿Borrar esta compra? También se resta del inventario.","Borrar",()=>dayUpdate(S.date,{purchases:{[id]:null}}));break;
-  case "gasto":mGasto();break;case "gastoLista":mCompraLista();break;case "gAInv":mGastoAInv(id);break;case "bebidas":mBebidas();break;case "gPer":S.gPer=v;S.fold.gTodo=false;render();break;
+  case "gasto":mGasto();break;case "gastoLista":mCompraLista();break;case "gAInv":mGastoAInv(id);break;case "bebidas":mBebidas();break;case "histTab":S.histTab=v;render();window.scrollTo(0,0);break;
+  case "gPer":S.gPer=v;S.fold.gTodo=false;render();break;
   case "gMove":{const k=S.gDia||Object.keys(S.days).filter(x=>x.startsWith(S.month||"")).sort().pop()||S.date;S.gDia=dAdd(k,(+v)*(S.gPer==="semana"?7:1));render();break}
   case "gOpen":{const c=decodeURIComponent(v);S.gOpen=S.gOpen||{};S.gOpen[c]=!S.gOpen[c];render();break}
   case "gTodo":S.fold.gTodo=!S.fold.gTodo;render();break;
