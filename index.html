@@ -785,7 +785,7 @@ function vAjustes(){const c=cfg();
    <div class="row"><button class="btn sec" data-a="export">${ICON.down} Descargar Excel</button><label class="btn sec" for="importFile">Cargar copia desde Excel</label><input type="file" id="importFile" accept=".xlsx,.xls" hidden></div></section>
   <section class="card stack"><h3>Clave de acceso</h3><p class="small muted">Usuario: <b>${esc(S.lockUser||"")}</b>. La clave la revisa el servidor. Se pide otra vez cada vez que se cierra la pestaña o el navegador${APP.dentro?". En la app puedes marcar \"Mantener sesión iniciada\" al entrar (dura 6 meses o hasta cambiar la clave)":""}.</p>
    <label class="f" style="max-width:320px"><span class="label">Bloquear sin uso después de</span><select id="autoLockCfg">${[[0,"No bloquear"],[5,"5 minutos"],[15,"15 minutos"],[30,"30 minutos"],[60,"1 hora"]].map(([v,l])=>`<option value="${v}" ${(+cfg().autoLock||0)===v?"selected":""}>${l}</option>`).join("")}</select></label>
-   <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section><p class="small muted" style="text-align:center">Versión de la caja: 19-oct-2026 · 9:00 pm</p>
+   <div class="row"><button class="btn sec" data-a="setLock">Cambiar clave</button><button class="btn ghost" data-a="lockNow">Cerrar sesión en este dispositivo</button></div></section><p class="small muted" style="text-align:center">Versión de la caja: 19-oct-2026 · 9:30 pm</p>
   </div>`}
 
 
@@ -1217,7 +1217,7 @@ function mDigital(date,id){const s0=S.days[date]?.sales?.[id];if(!s0)return;cons
   <button class="btn big sec" id="dPdf">Guardar como PDF</button><button class="btn sec" id="dCp">Copiar texto</button>
   <pre style="white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.85rem;max-height:220px;overflow:auto;margin:0">${esc(txt)}</pre>
   <p class="small muted">"Guardar como PDF" abre el diálogo de impresión: elige "Guardar como PDF" en vez de la impresora y luego compártelo. Es un comprobante de pedido, no factura electrónica.</p></div>`,sh=>{
-  const upd=()=>{const t=telCO($("#dTel",sh).value);$("#dWa",sh).href=`https://wa.me/${t}?text=${encodeURIComponent(txt)}`;$("#dWa",sh).textContent=t?"Enviar por WhatsApp":"Elegir chat de WhatsApp"};upd();$("#dTel",sh).oninput=upd;
+  const upd=()=>{const t=telCO($("#dTel",sh).value);$("#dWa",sh).href="https://wa.me/"+t+"?text="+encodeURIComponent(txt);$("#dWa",sh).textContent=t?"Enviar por WhatsApp":"Elegir chat de WhatsApp"};upd();$("#dTel",sh).oninput=upd;
   $("#dWa",sh).onclick=()=>{const t=$("#dTel",sh).value.trim();if(t&&t!==(s0.telefono||"")&&!isClosed(date))dayUpdate(date,{sales:{[id]:{telefono:t}}})};
   $("#dPdf",sh).onclick=()=>{if(!CAN_PRINT)return toast("Guardar en PDF funciona en la versión de Google.",true);printTicket(date,id,"cliente")};
   $("#dCp",sh).onclick=async()=>{try{await navigator.clipboard.writeText(txt.replace(/[*_]/g,""));toast("Comprobante copiado")}catch(e){toast("No se pudo copiar; selecciona el texto.",true)}}})}
@@ -1461,7 +1461,7 @@ function mFalta(pid,sh,doAdd){const p=prod(pid);
   $("#fIgual",s).onclick=()=>{sh.forEach(x=>S.ackShort.push(x.i.id));closeModal();doAdd()};
   s.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{const iid=b.dataset.buy;mCompra(iid,rec=>{S.cartCompras.push({id:rec.id,txt:`${trimN(rec.qty)} ${rec.unitIn==="unidad"?"und":rec.unitIn} de ${rec.name} (${money(rec.costo)})`});
     const left=shortages(S.cart.concat([{pid,qty:1}])).filter(x=>!S.ackShort.includes(x.i.id));if(left.length)mFalta(pid,left,doAdd);else doAdd()})})})}
-async function subirSonidoUI(file){if(!/^audio\//.test(file.type))return toast("Ese archivo no es un sonido (usa MP3, M4A, WAV u OGG).",true);if(file.size>1024*1024)return toast("El sonido pesa más de 1 MB. Recórtalo o usa uno más corto.",true);
+async function subirSonidoUI(file){if(!String(file.type||"").startsWith("audio"+"/"))return toast("Ese archivo no es un sonido (usa MP3, M4A, WAV u OGG).",true);if(file.size>1024*1024)return toast("El sonido pesa más de 1 MB. Recórtalo o usa uno más corto.",true);
  toast("Subiendo sonido…");const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(",")[1]);fr.onerror=rej;fr.readAsDataURL(file)});
  try{const meta=await call("subirSonido",file.name,file.type,b64);S.sonidoMeta=meta;customV=meta.v;setCustomAudio(b64,file.type);LS.set(SONIDO_KEY,JSON.stringify({v:meta.v,mime:file.type,b64}));
   S.cfg={...cfg(),tono:"propio"};await saveCfg();render();toast("Sonido subido. Ya es el tono de los pedidos.");playCustom(cfg().volumen??90)}catch(e){toast("No se pudo subir: "+errMsg(e),true)}}
