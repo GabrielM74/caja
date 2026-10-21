@@ -413,7 +413,7 @@ const catIns=i=>(cfg().insCat||{})[i.id]||catAutoIns(i);
 const icoICat=n=>(ICATS.find(c=>c[0]===n)||[0,"🔹"])[1];
 const ordICat=n=>{const k=ICATS.findIndex(c=>c[0]===n);return k<0?(n==="Otros"?99:50):k};
 const hit=(txt,q)=>!q||fuzzy(norm(txt||""),q);
-const VERSION_TXT="21-oct-2026 · 5:00 pm";
+const VERSION_TXT="21-oct-2026 · 6:30 pm";
 const NIV={empleado:1,supervisor:2,admin:3},ROLTXT={admin:"Admin",supervisor:"Supervisor",empleado:"Empleado"};
 const rol=()=>(S.yo&&S.yo.rol)||"admin",nivel=()=>NIV[rol()]||1,esAdmin=()=>rol()==="admin",esEmp=()=>rol()==="empleado";
 const permEmp=k=>!esEmp()||!!(cfg().permEmp||{})[k];
@@ -1880,12 +1880,24 @@ function tryAddOp(id,o){const p=prod(id);const pr=oPrecio(p,o);const same=x=>x.p
  if(sh.length)mFalta(id,sh,doAdd);else doAdd()}
 function mFalta(pid,sh,doAdd){const p=prod(pid);
  openModal("No alcanza el inventario",`<div class="stack"><p>Para <b>${esc(p?.name||"")}</b> no hay suficiente:</p>
-  <div class="list">${sh.map(x=>`<div class="li"><div class="grow"><div class="t">${esc(x.i.name)}</div><div class="small muted">Hay ${fmtP(Math.max(0,x.have),x.i)} · este pedido necesita ${fmtQ(x.need,x.i.unit)}</div></div><button class="btn sec" data-buy="${x.i.id}">Comprar ahora</button></div>`).join("")}</div>
-  <p class="small muted">Si compras ahora, la compra queda registrada y anotada en este pedido. Si el inventario está mal contado, puedes vender igual y corregirlo después con un conteo físico.</p>
+  <div class="list">${sh.map(x=>`<div class="li"><div class="grow"><div class="t">${esc(x.i.name)}</div><div class="small muted">Hay ${fmtP(Math.max(0,x.have),x.i)} · este pedido necesita ${fmtQ(x.need,x.i.unit)}</div></div><div class="row" style="gap:6px;width:100%"><button class="btn" data-hay="${x.i.id}" style="background:var(--green);flex:1">✓ Sí hay, contar ahora</button><button class="btn sec" data-buy="${x.i.id}" style="flex:1">Comprar ahora</button></div></div>`).join("")}</div>
+  <p class="small muted"><b>Sí hay:</b> si físicamente sí hay, escribe cuánto queda y el inventario se corrige (queda como conteo). <b>Comprar ahora:</b> si se acabó y se compró. <b>Vender igual:</b> si no hay tiempo; corrígelo después con un conteo.</p>
   <div class="row"><button class="btn sec" data-a="closeModal">Cancelar</button><button class="btn y" id="fIgual" style="flex:1">Vender igual</button></div></div>`,s=>{
   $("#fIgual",s).onclick=()=>{sh.forEach(x=>S.ackShort.push(x.i.id));closeModal();doAdd()};
+  const seguir=()=>{const left=shortages(S.cart.concat([{pid,qty:1}])).filter(x=>!S.ackShort.includes(x.i.id));if(left.length)mFalta(pid,left,doAdd);else doAdd()};
+  s.querySelectorAll("[data-hay]").forEach(b=>b.onclick=()=>{const it=ins(b.dataset.hay),x=sh.find(y=>y.i.id===it.id);const st=stockAll()[it.id];const U=unitsFor(it);const du=({g:"kg",ml:"l"})[it.unit]||U[0];
+   openModal("¿Cuánto hay de "+it.name+"?",`<form class="stack" id="hf"><p class="small muted" style="margin:0">El sistema dice que hay <b>${fmtP(st?st.actual:0,it)}</b> y este pedido necesita <b>${fmtQ(x?x.need:0,it.unit)}</b>. Cuenta lo que hay físicamente <b>antes</b> de preparar este pedido.</p>
+    <div class="fgrid"><label class="f"><span class="label">Hay</span><input id="h_q" inputmode="decimal" required autofocus></label><label class="f"><span class="label">Unidad</span><select id="h_u">${U.map(u=>`<option ${u===du?"selected":""}>${esc(u)}</option>`).join("")}</select></label></div>
+    <div class="small" id="h_eq"></div>
+    <button class="btn big">Guardar y seguir con la venta</button><button type="button" class="btn ghost" id="h_back">← Volver</button></form>`,s2=>{
+    const eq=()=>{const r=num($("#h_q",s2).value)*factor(it,$("#h_u",s2).value);$("#h_eq",s2).innerHTML=$("#h_q",s2).value?`= ${esc(fmtQ(r,it.unit))}${x&&r<x.need-1e-9?` · <b style="color:var(--red-ink)">no alcanza para este pedido (necesita ${esc(fmtQ(x.need,it.unit))})</b>`:""}`:""};
+    $("#h_q",s2).oninput=eq;$("#h_u",s2).onchange=eq;$("#h_back",s2).onclick=()=>mFalta(pid,sh,doAdd);setTimeout(()=>$("#h_q",s2)&&$("#h_q",s2).focus(),60);
+    $("#hf",s2).onsubmit=e=>{e.preventDefault();const r=num($("#h_q",s2).value)*factor(it,$("#h_u",s2).value);const id=uid("k");
+     dayUpdate(S.date,{conteos:{[id]:{id,ts:Date.now(),iid:it.id,name:it.name,sistema:st?st.actual:0,real:r,nota:"Conteo al vender (el sistema decía que no alcanzaba)"}}});
+     toast(`${it.name}: inventario corregido a ${fmtQ(r,it.unit)}`);closeModal();
+     if(x&&r<x.need-1e-9){S.ackShort.push(it.id)}seguir()}})});
   s.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{const iid=b.dataset.buy;mCompra(iid,rec=>{S.cartCompras.push({id:rec.id,txt:`${trimN(rec.qty)} ${rec.unitIn==="unidad"?"und":rec.unitIn} de ${rec.name} (${money(rec.costo)})`});
-    const left=shortages(S.cart.concat([{pid,qty:1}])).filter(x=>!S.ackShort.includes(x.i.id));if(left.length)mFalta(pid,left,doAdd);else doAdd()})})})}
+    seguir()})})})}
 async function subirSonidoUI(file){if(!String(file.type||"").startsWith("audio"+"/"))return toast("Ese archivo no es un sonido (usa MP3, M4A, WAV u OGG).",true);if(file.size>1024*1024)return toast("El sonido pesa más de 1 MB. Recórtalo o usa uno más corto.",true);
  toast("Subiendo sonido…");const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(",")[1]);fr.onerror=rej;fr.readAsDataURL(file)});
  try{const meta=await call("subirSonido",file.name,file.type,b64);S.sonidoMeta=meta;customV=meta.v;setCustomAudio(b64,file.type);LS.set(SONIDO_KEY,JSON.stringify({v:meta.v,mime:file.type,b64}));
