@@ -411,7 +411,7 @@ const catIns=i=>(cfg().insCat||{})[i.id]||catAutoIns(i);
 const icoICat=n=>(ICATS.find(c=>c[0]===n)||[0,"🔹"])[1];
 const ordICat=n=>{const k=ICATS.findIndex(c=>c[0]===n);return k<0?(n==="Otros"?99:50):k};
 const hit=(txt,q)=>!q||fuzzy(norm(txt||""),q);
-const VERSION_TXT="20-oct-2026 · 7:45 pm";
+const VERSION_TXT="20-oct-2026 · 7:50 pm";
 const NIV={empleado:1,supervisor:2,admin:3},ROLTXT={admin:"Admin",supervisor:"Supervisor",empleado:"Empleado"};
 const rol=()=>(S.yo&&S.yo.rol)||"admin",nivel=()=>NIV[rol()]||1,esAdmin=()=>rol()==="admin",esEmp=()=>rol()==="empleado";
 const permEmp=k=>!esEmp()||!!(cfg().permEmp||{})[k];
@@ -905,7 +905,7 @@ function orderGroups(){const all=[];Object.entries(S.days).forEach(([k,d])=>vals
     espera:all.filter(s=>s.estado==="espera")}}
 const telDig=t=>String(t||"").replace(/[^0-9]/g,"");
 const waNum=t=>{let d=telDig(t);if(d.length===10&&d[0]==="3")d="57"+d;return d};
-const mapsUrl=d=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(/palmira/i.test(d)?d:d+", Palmira, Valle del Cauca");
+const mapsUrl=d=>"https:\/\/www.google.com/maps/search/?api=1&query="+encodeURIComponent(/palmira/i.test(d)?d:d+", Palmira, Valle del Cauca");
 const conTxt=i=>(i.con||[]).map(id=>ins(id)?.name||"").filter(Boolean).join(", ");
 function ordRow(o,k,kind){const open=S.openO[o.id]??(kind==="prep"&&k===0);const late=kind==="prep"&&Date.now()-(o.ts||0)>20*60000;const paid=isPaid(o);const n=(o.items||[]).reduce((a,i)=>a+(+i.qty||0),0);const dom=(o.tipo||(+o.domicilio>0?"domicilio":""))==="domicilio";
   const btns=[];
@@ -927,7 +927,7 @@ function ordRow(o,k,kind){const open=S.openO[o.id]??(kind==="prep"&&k===0);const
     ${o.noPaga&&!paid?`<div class="cobra" style="background:var(--amber-soft);color:var(--amber);border:2px solid var(--mustard)"><span>🎁 NO PAGA · familiar o cortesía</span><span>No cobrar</span></div>`:paid?`<div class="cobra si"><span>✓ YA PAGADO · ${esc(pagoTxt(o))}</span><span>No cobrar</span></div>`:`<div class="cobra no"><span>💵 SIN PAGAR · cobrar</span><span class="num">${money(falta(o))}</span></div>`}
     ${dom?(()=>{const d=o.direccion||"",t=o.telefono||"",w=waNum(t);const msg=`Hola${o.cliente?" "+o.cliente:""}, te escribimos de ${cfg().negocio?.nombre||"Aquí Fue"}: tu pedido #${o.num||""} va en camino.`;
       return `<div class="entrega"><span class="label" style="color:#1C5A9E">Entregar a</span><div class="quien">${esc(o.cliente||"Cliente sin nombre")}</div><div class="dir">📍 ${esc(d||"Sin dirección")}</div>${t?`<div><b>📞 ${esc(t)}</b></div>`:`<div class="small muted">Sin teléfono</div>`}
-       <div class="lnk">${t?`<a href="tel:${telDig(t)}" target="_blank" rel="noopener">📞 Llamar</a><a href="https://wa.me/${w}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}${d?`<a href="${mapsUrl(d)}" target="_blank" rel="noopener">📍 Maps</a>`:""}</div>
+       <div class="lnk">${t?`<a href="tel:${telDig(t)}" target="_blank" rel="noopener">📞 Llamar</a><a href="https:\/\/wa.me/${w}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}${d?`<a href="${mapsUrl(d)}" target="_blank" rel="noopener">📍 Maps</a>`:""}</div>
        <div class="small">Domicilio: <b>${money(o.domicilio)}</b> (incluido en el cobro)</div></div>`})():""}
     <ul>${(o.items||[]).map(i=>`<li class="it"><b>${trimN(i.qty)}× ${esc(i.name)}</b>${+i.ronda>1?` <span class="tag con" style="background:var(--green)">+ Agregado</span>`:""}<div>${(i.sin||[]).length?`<span class="tag sin">SIN ${esc(sinTxt(i))}</span>`:""}${(i.con||[]).length?`<span class="tag con">CON ${esc(conTxt(i))}</span>`:""}${(i.salsas||[]).length?`<span class="tag sal">Salsas: ${esc(i.salsas.join(", "))}</span>`:""}</div></li>`).join("")}</ul>
     ${o.nota?`<div class="nt">📝 ${esc(o.nota)}</div>`:""}
@@ -1412,7 +1412,7 @@ function mDigital(date,id){const s0=S.days[date]?.sales?.[id];if(!s0)return;cons
   <button class="btn big sec" id="dPdf">Guardar como PDF</button><button class="btn sec" id="dCp">Copiar texto</button>
   <pre style="white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.85rem;max-height:220px;overflow:auto;margin:0">${esc(txt)}</pre>
   <p class="small muted">"Guardar como PDF" abre el diálogo de impresión: elige "Guardar como PDF" en vez de la impresora y luego compártelo. Es un comprobante de pedido, no factura electrónica.</p></div>`,sh=>{
-  const upd=()=>{const t=telCO($("#dTel",sh).value);$("#dWa",sh).href="https://wa.me/"+t+"?text="+encodeURIComponent(txt);$("#dWa",sh).textContent=t?"Enviar por WhatsApp":"Elegir chat de WhatsApp"};upd();$("#dTel",sh).oninput=upd;
+  const upd=()=>{const t=telCO($("#dTel",sh).value);$("#dWa",sh).href="https:\/\/wa.me/"+t+"?text="+encodeURIComponent(txt);$("#dWa",sh).textContent=t?"Enviar por WhatsApp":"Elegir chat de WhatsApp"};upd();$("#dTel",sh).oninput=upd;
   $("#dWa",sh).onclick=()=>{const t=$("#dTel",sh).value.trim();if(t&&t!==(s0.telefono||"")&&!isClosed(date))dayUpdate(date,{sales:{[id]:{telefono:t}}})};
   $("#dPdf",sh).onclick=()=>{if(!CAN_PRINT)return toast("Guardar en PDF funciona en la versión de Google.",true);printTicket(date,id,"cliente")};
   $("#dCp",sh).onclick=async()=>{try{await navigator.clipboard.writeText(txt.replace(/[*_]/g,""));toast("Comprobante copiado")}catch(e){toast("No se pudo copiar; selecciona el texto.",true)}}})}
