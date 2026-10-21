@@ -1,6 +1,6 @@
 // Caja Aquí Fue - service worker
 // Siempre pide la versión más reciente a internet. Solo usa la copia guardada si no hay conexión.
-const CACHE = "aquifue-20261020-0715pm";
+const CACHE = "aquifue-20261020-0745pm";
 
 self.addEventListener("install", e => {
   self.skipWaiting();
