@@ -413,7 +413,7 @@ const catIns=i=>(cfg().insCat||{})[i.id]||catAutoIns(i);
 const icoICat=n=>(ICATS.find(c=>c[0]===n)||[0,"🔹"])[1];
 const ordICat=n=>{const k=ICATS.findIndex(c=>c[0]===n);return k<0?(n==="Otros"?99:50):k};
 const hit=(txt,q)=>!q||fuzzy(norm(txt||""),q);
-const VERSION_TXT="21-oct-2026 · 9:30 pm";
+const VERSION_TXT="21-oct-2026 · 10:00 pm";
 const NIV={empleado:1,supervisor:2,admin:3},ROLTXT={admin:"Admin",supervisor:"Supervisor",empleado:"Empleado"};
 const rol=()=>(S.yo&&S.yo.rol)||"admin",nivel=()=>NIV[rol()]||1,esAdmin=()=>rol()==="admin",esEmp=()=>rol()==="empleado";
 const permEmp=k=>!esEmp()||!!(cfg().permEmp||{})[k];
@@ -442,7 +442,7 @@ function dayUpdate(date,patch){S.days[date]=merge(S.days[date]||{date},patch);di
 function saveCatalog(kind){dirty();const items=clone(kind==="prod"?S.products:S.insumos);render();return enqueue("w",()=>call("guardarCatalogo",kind,JSON.stringify(items)))}
 function saveCfg(){dirty();render();const c={...cfg()};delete c.lock;return enqueue("w",()=>call("guardarConfig",JSON.stringify(c)))}
 async function refresh(){if(!S.token)return;if(refreshing||S.saving){S.needRefresh=true;return}refreshing=true;const seq=writeSeq;
-  try{const r=JSON.parse(await call("todo"));if(seq!==writeSeq||S.saving)S.needRefresh=true;else{S.cfg=r.cfg;S.yo=r.yo||null;if(S.yo&&!puedeVer(S.view))S.view="vender";if(!esAdmin())S.dateManual=false;S.products=r.products||[];S.insumos=r.insumos||[];S.days=r.days||{};dirty();S.version=r.version;Object.keys(S.days).forEach(k=>dayExists[k]=true);S.sonidoMeta=r.sonido||null;syncSonido();S.loaded={cfg:1,prod:1,ins:1,days:1};if(!S.dateManual)S.date=workDate();render();checkNewOrders();if(cfg().carpetas===undefined&&!S._ao&&esAdmin()){S._ao=1;setTimeout(autoOrganizar,400)}}}
+  try{const r=JSON.parse(await call("todo"));if(seq!==writeSeq||S.saving)S.needRefresh=true;else{S.cfg=r.cfg;S.yo=r.yo||null;if(S.yo&&!puedeVer(S.view))S.view="vender";if(!esAdmin())S.dateManual=false;S.products=r.products||[];S.insumos=r.insumos||[];S.days=r.days||{};dirty();S.version=r.version;Object.keys(S.days).forEach(k=>dayExists[k]=true);S.sonidoMeta=r.sonido||null;syncSonido();S.loaded={cfg:1,prod:1,ins:1,days:1};if(!S.dateManual)S.date=workDate();render();checkNewOrders();if(cfg().carpetas===undefined&&!S._ao&&esAdmin()){S._ao=1;setTimeout(autoOrganizar,400)}if(!S._ort&&nivel()>=2){S._ort=1;setTimeout(arreglarOrt,600)}}}
   catch(e){if(!ready()&&S.token)$("#view").innerHTML=`<div class="card stack"><h2>No se pudo conectar con la hoja</h2><p class="muted">${esc((e&&e.message)||e)}</p><button class="btn" data-a="retry">Reintentar</button></div>`}
   refreshing=false;if(S.needRefresh&&!S.saving){S.needRefresh=false;refresh()}}
 
@@ -481,14 +481,20 @@ const isClosed=date=>!!S.days[date]?.closed;
 function diaSinCerrar(){const hoy=workDate();return Object.keys(S.days).filter(k=>k<hoy&&!S.days[k].closed&&(vals(S.days[k].sales).length||vals(S.days[k].expenses).length)).sort().pop()||null}
 function bloqueado(){if(isClosed(S.date)){toast("La caja de este día ya está cerrada. Reábrela en Caja del día para registrar algo.",true);return true}return false}
 const esEmpaque=i=>!!i&&(i.empaque??/empaque|bolsa|parafinado|aluminio|icopor/.test(norm(i.name)));
-const salsaMatch=(i,sv)=>{const a=norm(i&&i.name||"").replace(/\bsalsa(s)?\b/g," ").replace(/\s+/g," ").trim(),b=norm(sv).replace(/\bsalsa(s)?\b/g," ").replace(/\s+/g," ").trim();return !!a&&!!b&&(a===b||a.split(" ").includes(b)||b.split(" ").includes(a)||a.includes(b))};
+const fixOrt=t=>String(t==null?"":t).replace(/cacer/gi,m=>m===m.toUpperCase()?"CASER":m[0]===m[0].toUpperCase()?"Caser":"caser");
+const salsaMatch=(i,sv)=>{const a=norm(fixOrt(i&&i.name||"")).replace(/\bsalsa(s)?\b/g," ").replace(/\s+/g," ").trim(),b=norm(fixOrt(sv)).replace(/\bsalsa(s)?\b/g," ").replace(/\s+/g," ").trim();return !!a&&!!b&&(a===b||a.split(" ").includes(b)||b.split(" ").includes(a)||a.includes(b))};
 const esSalsaIns=i=>!!i&&(catIns(i)==="Salsas"||/salsa/.test(norm(i.name))||(cfg().salsas||[]).some(sv=>salsaMatch(i,sv)));
-const salsaNom=i=>{const n=(i&&i.name||"").replace(/^\s{0,}salsas?\s+(de\s+)?/i,"").trim()||(i&&i.name)||"";return n.charAt(0).toUpperCase()+n.slice(1)};
+const salsaNom=i=>{const n=fixOrt(i&&i.name||"").replace(/^\s{0,}salsas?\s+(de\s+)?/i,"").trim()||(i&&i.name)||"";return n.charAt(0).toUpperCase()+n.slice(1)};
 const salsaIns=()=>S.insumos.filter(i=>i.activo!==false&&esSalsaIns(i)).sort((a,b)=>a.name.localeCompare(b.name,"es"));
 const recSalsas=pid=>{const p=prod(pid);return (p?.receta||[]).filter(r=>esSalsaIns(ins(r.iid)))};
-function salsaOpts(pid){const L=[];recSalsas(pid).forEach(r=>L.push(salsaNom(ins(r.iid))));salsaIns().forEach(i=>L.push(salsaNom(i)));(cfg().salsas||[]).forEach(x=>{if(!L.some(y=>norm(y)===norm(x))&&!S.insumos.some(i=>esSalsaIns(i)&&salsaMatch(i,x)))L.push(x)});const seen=new Set();return L.filter(x=>{const k=norm(x);if(!x||seen.has(k))return false;seen.add(k);return true})}
+function salsaGrupos(){const G=cfg().salsaGrupos;if(Array.isArray(G))return G.filter(g=>g&&g.n&&(g.iids||[]).some(id=>ins(id)));
+ const L=S.insumos.filter(i=>i.activo!==false&&esSalsaIns(i));const aj=L.find(i=>/\bajo\b/.test(norm(i.name))),ve=L.find(i=>/\bverde\b/.test(norm(i.name)));return aj&&ve?[{n:"Caseras",iids:[aj.id,ve.id],auto:true}]:[]}
+const grupoDe=x=>salsaGrupos().find(g=>norm(fixOrt(g.n))===norm(fixOrt(x)));
+const grupoTxt=g=>g.iids.map(id=>ins(id)).filter(Boolean).map(salsaNom).join(" + ");
+const salsasTxt=L=>(L||[]).map(x=>{const g=grupoDe(x);return g?`${fixOrt(g.n)} (${grupoTxt(g)})`:fixOrt(x)}).join(", ");
+function salsaOpts(pid){const L=[];salsaGrupos().forEach(g=>L.push(fixOrt(g.n)));recSalsas(pid).forEach(r=>L.push(salsaNom(ins(r.iid))));salsaIns().forEach(i=>L.push(salsaNom(i)));(cfg().salsas||[]).map(fixOrt).forEach(x=>{if(!L.some(y=>norm(y)===norm(x))&&!S.insumos.some(i=>esSalsaIns(i)&&salsaMatch(i,x)))L.push(x)});const seen=new Set();return L.filter(x=>{const k=norm(x);if(!x||seen.has(k))return false;seen.add(k);return true})}
 function salsaSinTxt(it){if(!it||!it.pid)return "";const sf=salsaFiltro(it.salsas);if(!sf)return "";return recSalsas(it.pid).filter(r=>sf.sin||!sf.sel.some(sv=>salsaMatch(ins(r.iid),sv))).map(r=>salsaNom(ins(r.iid))).join(", ")}
-function salsaFiltro(salsas){const L=(salsas||[]).filter(Boolean);if(!L.length)return null;if(L.some(x=>norm(x)==="sin salsa"))return {sin:true,sel:[]};const known=L.filter(x=>(cfg().salsas||[]).some(k=>norm(k)===norm(x))||S.insumos.some(i=>esSalsaIns(i)&&salsaMatch(i,x)));return known.length?{sin:false,sel:known}:null}
+function salsaFiltro(salsas){const L=[];(salsas||[]).filter(Boolean).forEach(x=>{const g=grupoDe(x);if(g)g.iids.forEach(id=>{const i=ins(id);if(i)L.push(salsaNom(i))});else L.push(x)});if(!L.length)return null;if(L.some(x=>norm(x)==="sin salsa"))return {sin:true,sel:[]};const known=L.filter(x=>(cfg().salsas||[]).some(k=>norm(k)===norm(x))||S.insumos.some(i=>esSalsaIns(i)&&salsaMatch(i,x)));return known.length?{sin:false,sel:known}:null}
 function expand(pid,qty,acc,depth=0,opt){const p=prod(pid);if(!p||depth>4)return;const sin=opt&&opt.sin,local=opt&&opt.local;const sf=opt&&opt.salsas?salsaFiltro(opt.salsas):null;
  if(sf){const sr=(p.receta||[]).filter(r=>esSalsaIns(ins(r.iid)));const avg=sr.length?sr.reduce((a,r)=>a+(+r.qty||0),0)/sr.length:0;
   if(!depth)sf.sel.forEach(sv=>{if(sr.some(r=>salsaMatch(ins(r.iid),sv)))return;const i=S.insumos.find(x=>x.activo!==false&&esSalsaIns(x)&&salsaMatch(x,sv));if(!i||(sin||[]).includes(i.id))return;const q=+((cfg().salsaPor||{})[i.id])||avg;if(q>0)acc[i.id]=(acc[i.id]||0)+q*qty})}
@@ -507,7 +513,7 @@ function soldOn(dates){const m={};dates.forEach(k=>vals(S.days[k]?.sales).filter
 
 const sinTxt=i=>(i.sin||[]).map(id=>ins(id)?.name||"").filter(Boolean).join(", ");
 const extTxt=i=>(i.extra||[]).map(x=>ins(x.iid)?fmtQ(x.qty,ins(x.iid).unit)+" "+ins(x.iid).name:"").filter(Boolean).join(", ");
-const itemTxt=i=>`${trimN(i.qty)}× ${i.name}${(i.salsas||[]).length?` (${i.salsas.join(", ")}${salsaSinTxt(i)&&!(i.salsas||[]).some(x=>norm(x)==="sin salsa")?" · sin "+salsaSinTxt(i):""})`:""}${(i.sin||[]).length?` [sin ${sinTxt(i)}]`:""}${(i.extra||[]).length?` [en cambio ${extTxt(i)}]`:""}`;
+const itemTxt=i=>`${trimN(i.qty)}× ${i.name}${(i.salsas||[]).length?` (${salsasTxt(i.salsas)}${salsaSinTxt(i)&&!(i.salsas||[]).some(x=>norm(x)==="sin salsa")?" · sin "+salsaSinTxt(i):""})`:""}${(i.sin||[]).length?` [sin ${sinTxt(i)}]`:""}${(i.extra||[]).length?` [en cambio ${extTxt(i)}]`:""}`;
 function tipoTxt(s){const t=s.tipo||(+s.domicilio>0?"domicilio":"local");return t==="domicilio"?"Domicilio":t==="recoger"?"Para recoger":s.mesa?"Mesa "+s.mesa:"En local"}
 function quien(s){return [tipoTxt(s),s.cliente].filter(Boolean).join(" · ")}
 const congelado=()=>cfg().congelado||null;
@@ -593,7 +599,7 @@ function vVender(){
   <aside class="card cart stack ${S.cartOpen?"open":""}" aria-label="Pedido">
     <div class="row between"><h2>${S.anexo?"Agregar al #"+(S.anexo.num||""):"Pedido"}</h2><div class="row"><span class="chip gray">${fDate(S.date)}</span>${S.cartOpen?`<button class="btn sec" data-a="cartClose">Seguir agregando</button>`:""}</div></div>
     ${S.cart.length?`<div>${S.cart.map((l,i)=>`<div class="cline"><div style="min-width:0"><div class="t" style="font-weight:700">${esc(l.name)}</div>${permEmp("desc")?`<button class="btn ghost small" data-a="lprice" data-i="${i}" style="padding:0">${money(l.price)} c/u ✎</button>`:`<span class="small muted">${money(l.price)} c/u</span>`}
-      ${l.pid&&(prod(l.pid)?.cat!=="Bebida"||recSalsas(l.pid).length)?`<button class="sbtn" data-a="salsas" data-i="${i}">${(l.salsas||[]).length?"🥫 "+esc(l.salsas.join(", "))+(salsaSinTxt(l)?" · sin "+esc(salsaSinTxt(l)):"")+" ✎":recSalsas(l.pid).length?"🥫 Salsas de la receta ✎":"+ Escoger salsas"}</button>`:""}
+      ${l.pid&&(prod(l.pid)?.cat!=="Bebida"||recSalsas(l.pid).length)?`<button class="sbtn" data-a="salsas" data-i="${i}">${(l.salsas||[]).length?"🥫 "+esc(salsasTxt(l.salsas))+(salsaSinTxt(l)?" · sin "+esc(salsaSinTxt(l)):"")+" ✎":recSalsas(l.pid).length?"🥫 Salsas de la receta ✎":"+ Escoger salsas"}</button>`:""}
       ${l.pid&&(prod(l.pid)?.receta||[]).some(r=>!esSalsaIns(ins(r.iid)))?`<button class="sbtn" data-a="ingr" data-i="${i}" style="color:${(l.sin||[]).length||(l.extra||[]).length?"var(--red-ink)":"var(--muted)"}">${(l.sin||[]).length||(l.extra||[]).length?[(l.sin||[]).length?"Sin "+esc(sinTxt(l)):"",(l.extra||[]).length?"🔁 "+esc(extTxt(l)):""].filter(Boolean).join(" → ")+" ✎":"Ingredientes ✎"}</button>`:""}</div>
       <div class="qty"><button data-a="dec" data-i="${i}" aria-label="Quitar uno">−</button><span class="num">${l.qty}</span><button data-a="inc" data-i="${i}" aria-label="Agregar uno">+</button></div><b class="amt">${money(l.price*l.qty)}</b></div>`).join("")}</div>`
       :`<div class="empty">Toca los productos para armar el pedido. Puedes combinar comidas, bebidas y adicionales en una sola venta.</div>`}
@@ -854,7 +860,7 @@ function vCat(){
   }else{const G={};S.insumos.filter(i=>hit(i.name,cq)||hit(catIns(i),cq)).forEach(i=>{const c=catIns(i);(G[c]=G[c]||[]).push(i)});
    body=Object.keys(G).sort((a,b)=>ordICat(a)-ordICat(b)||a.localeCompare(b,"es")).map(c=>`<section class="card stack"><h3>${icoICat(c)} ${esc(c)} <span class="chip gray">${G[c].length}</span></h3><div class="list">${G[c].sort((a,b)=>a.name.localeCompare(b.name,"es")).map(i=>`<div class="li"><div class="grow"><div class="t">${esc(i.name)} ${i.activo===false?`<span class="chip gray">Oculto</span>`:""}</div><div class="small muted">Se mide en ${i.unit==="unidad"?"unidades":i.unit}${presList(i).length?` · se compra por ${esc(presList(i).map(p=>p.n+" ("+fmtQ(p.q,i.unit)+")").join(", "))}`:""}${esEmpaque(i)?" · empaque para llevar":""} · inicial ${fmtQ(i.stockIni,i.unit)} · mínimo ${fmtQ(i.min,i.unit)}</div></div><button class="btn ghost" data-a="editI" data-id="${i.id}">Editar</button></div>`).join("")}</div></section>`).join("")||`<div class="empty">${cq?`Ningún insumo coincide con “${esc(S.cq)}”.`:"Sin insumos."}</div>`}
   return `<div class="stack"><div class="row between"><div class="seg"><button data-a="catTab" data-v="productos" aria-pressed="${t==="productos"}">Productos del menú</button><button data-a="catTab" data-v="insumos" aria-pressed="${t==="insumos"}">Insumos</button></div>
-  ${t==="productos"?`<button class="btn sec" data-a="asisBeb">🥤 Asistente de bebidas</button>`:""}<button class="btn" data-a="${t==="productos"?"editP":"editI"}">+ ${t==="productos"?"Nuevo producto":"Nuevo insumo"}</button></div>
+  ${t==="productos"?`<button class="btn sec" data-a="asisBeb">🥤 Asistente de bebidas</button>`:`<button class="btn sec" data-a="nuevaSalsa">🥫 + Nueva salsa</button><button class="btn sec" data-a="salsaGr">🥫 Combinaciones de salsas</button>`}<button class="btn" data-a="${t==="productos"?"editP":"editI"}">+ ${t==="productos"?"Nuevo producto":"Nuevo insumo"}</button></div>
   <div class="isearch"><span aria-hidden="true">🔎</span><input id="cq" placeholder="${t==="productos"?"Buscar producto o sabor":"Buscar insumo o categoría"}" value="${esc(S.cq||"")}" autocomplete="off">${S.cq?`<button data-a="cqClear" aria-label="Borrar búsqueda">✕</button>`:""}</div>
   <p class="small muted">Los nombres solo se escriben aquí. En las ventas y compras se escogen de la lista, así nunca quedan mal escritos.</p>${body}</div>`;
 }
@@ -954,7 +960,7 @@ function ordRow(o,k,kind){const open=S.openO[o.id]??(kind==="prep"&&k===0);const
       return `<div class="entrega"><span class="label" style="color:#1C5A9E">Entregar a</span><div class="quien">${esc(o.cliente||"Cliente sin nombre")}</div><div class="dir">📍 ${esc(d||"Sin dirección")}</div>${t?`<div><b>📞 ${esc(t)}</b></div>`:`<div class="small muted">Sin teléfono</div>`}
        <div class="lnk">${t?`<a href="tel:${telDig(t)}" target="_blank" rel="noopener">📞 Llamar</a><a href="https:\/\/wa.me/${w}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}${d?`<a href="${mapsUrl(d)}" target="_blank" rel="noopener">📍 Maps</a>`:""}</div>
        <div class="small">Domicilio: <b>${money(o.domicilio)}</b> (incluido en el cobro)</div></div>`})():""}
-    <ul>${(o.items||[]).map(i=>`<li class="it"><b>${trimN(i.qty)}× ${esc(i.name)}</b>${+i.ronda>1?` <span class="tag con" style="background:var(--green)">+ Agregado</span>`:""}<div>${(i.sin||[]).length?`<span class="tag sin">SIN ${esc(sinTxt(i))}</span>`:""}${(i.extra||[]).length?`<span class="tag con" style="background:#1C5A9E">EN CAMBIO ${esc(extTxt(i))}</span>`:""}${(i.con||[]).length?`<span class="tag con">CON ${esc(conTxt(i))}</span>`:""}${(i.salsas||[]).length?`<span class="tag sal">🥫 ${esc(i.salsas.join(", "))}</span>`:""}${salsaSinTxt(i)&&!(i.salsas||[]).some(x=>norm(x)==="sin salsa")?`<span class="tag sin">SIN ${esc(salsaSinTxt(i))}</span>`:""}</div></li>`).join("")}</ul>
+    <ul>${(o.items||[]).map(i=>`<li class="it"><b>${trimN(i.qty)}× ${esc(i.name)}</b>${+i.ronda>1?` <span class="tag con" style="background:var(--green)">+ Agregado</span>`:""}<div>${(i.sin||[]).length?`<span class="tag sin">SIN ${esc(sinTxt(i))}</span>`:""}${(i.extra||[]).length?`<span class="tag con" style="background:#1C5A9E">EN CAMBIO ${esc(extTxt(i))}</span>`:""}${(i.con||[]).length?`<span class="tag con">CON ${esc(conTxt(i))}</span>`:""}${(i.salsas||[]).length?`<span class="tag sal">🥫 ${esc(salsasTxt(i.salsas))}</span>`:""}${salsaSinTxt(i)&&!(i.salsas||[]).some(x=>norm(x)==="sin salsa")?`<span class="tag sin">SIN ${esc(salsaSinTxt(i))}</span>`:""}</div></li>`).join("")}</ul>
     ${o.nota?`<div class="nt">📝 ${esc(o.nota)}</div>`:""}
     ${(()=>{const cs=vals(S.days[o.date]?.consumos).filter(c=>c.venta===o.id);return cs.length?`<div class="small" style="color:#1C5A9E"><b>Insumos extra:</b> ${esc(cs.flatMap(c=>c.items.map(x=>fmtQ(x.qty,ins(x.iid)?.unit)+" "+(ins(x.iid)?.name||""))).join(", "))}</div>`:""})()}
     ${(o.compras||[]).length?`<div class="small" style="color:#7A5200"><b>Compra al momento:</b> ${esc(o.compras.map(c=>c.txt).join(", "))}</div>`:""}
@@ -1080,20 +1086,23 @@ function mRevender(date,id){const o=S.days[date]?.sales?.[id];if(!o)return;if(bl
    const sale={id:nid,num:numero,ts:Date.now(),hora:hora(),items:(o.items||[]).map(i=>({...i,noStock:true})),subtotal:sub,total:precio,domicilio:0,metodo:m,pagos:{[m]:precio},pagado:true,pagadoTs:Date.now(),cliente:$("#rC",sh).value.trim(),tipo:"local",mesa:"",estado:"listo",listoTs:Date.now(),nota:`Vendido de la lista de espera (pedido #${o.num||""} del ${fDate(date)})`,deEspera:{date,id}};
    const d=S.date;if(d===date){dayUpdate(d,{sales:{[nid]:sale,[id]:{estado:"revendida",revendidaEn:d}}})}else{dayUpdate(d,{sales:{[nid]:sale}});dayUpdate(date,{sales:{[id]:{estado:"revendida",revendidaEn:d}}})}
    closeModal();toast(`Vendido · ${money(precio)}`)}})}
-function mSalsas(i){const l=S.cart[i];const opts=salsaOpts(l.pid);const rs=recSalsas(l.pid);const recN=rs.map(r=>salsaNom(ins(r.iid)));
+function mSalsas(i){const l=S.cart[i];const opts=salsaOpts(l.pid);const rs=recSalsas(l.pid);let recN=rs.map(r=>salsaNom(ins(r.iid)));
+ salsaGrupos().forEach(g=>{const M=g.iids.map(id=>ins(id)).filter(Boolean).map(salsaNom);if(M.length&&M.every(m=>recN.some(x=>norm(x)===norm(m)))){recN=recN.filter(x=>!M.some(m=>norm(m)===norm(x)));recN.unshift(fixOrt(g.n))}});
  let sel=(l.salsas||[]).length?[...l.salsas]:[...recN];
- const info=n=>{const r=rs.find(x=>salsaMatch(ins(x.iid),n));if(r)return fmtQ(r.qty,ins(r.iid).unit)+" · receta";const it=S.insumos.find(x=>x.activo!==false&&esSalsaIns(x)&&salsaMatch(x,n));if(!it)return "solo nota";const q=+((cfg().salsaPor||{})[it.id])||(rs.length?rs.reduce((a,r)=>a+(+r.qty||0),0)/rs.length:0);return q>0?fmtQ(q,it.unit):"no descuenta"};
+ const info=n=>{const g=grupoDe(n);if(g)return grupoTxt(g);const r=rs.find(x=>salsaMatch(ins(x.iid),n));if(r)return fmtQ(r.qty,ins(r.iid).unit)+" · receta";const it=S.insumos.find(x=>x.activo!==false&&esSalsaIns(x)&&salsaMatch(x,n));if(!it)return "solo nota";const q=+((cfg().salsaPor||{})[it.id])||(rs.length?rs.reduce((a,r)=>a+(+r.qty||0),0)/rs.length:0);return q>0?fmtQ(q,it.unit):"no descuenta"};
  openModal("🥫 Salsas · "+l.name,`<div class="stack">${opts.length?"":`<div class="banner">Aún no hay salsas. Créalas como insumos (categoría Salsas) o escríbelas en Ajustes.</div>`}
  ${rs.length?`<p class="small muted" style="margin:0">Vienen marcadas las de la receta. <b>Desmarca</b> la que no quiera (ej. sin piña) o marca otras. Solo las marcadas se descuentan del inventario y cocina ve la combinación.</p>`:`<p class="small muted" style="margin:0">Las marcadas se descuentan del inventario y salen en la comanda.</p>`}
- <div class="schips" id="sl"></div><div class="small" id="slTxt"></div>
+ <div class="schips" id="sl"></div><div class="small" id="slTxt"></div>${salsaGrupos().length?`<p class="small muted" style="margin:0">${esc(salsaGrupos().map(g=>fixOrt(g.n)+" = "+grupoTxt(g)).join(" · "))}</p>`:""}
  <label class="f"><span class="label">Otra indicación (opcional)</span><input id="otraS" placeholder="Ej. salsas aparte, poquita rosada"></label>
  ${l.qty>1?`<label class="row"><input type="checkbox" id="soloUno"> Solo para 1 de los ${l.qty} (los demás quedan aparte)</label>`:""}
+ <button type="button" class="btn ghost" id="newSal" style="align-self:flex-start">+ Nueva salsa</button>
  <div class="row"><button class="btn sec" id="sinS">Sin salsa</button>${rs.length?`<button class="btn ghost" id="recS">Como la receta</button>`:""}<button class="btn" id="okS" style="flex:1">Listo</button></div></div>`,s=>{
  const draw=()=>{const extra=sel.filter(x=>!opts.some(o=>norm(o)===norm(x))&&norm(x)!=="sin salsa");$("#sl",s).innerHTML=[...opts,...extra].map(o=>{const on=sel.some(x=>norm(x)===norm(o));return `<button type="button" class="schip" data-s="${esc(o)}" aria-pressed="${on}">${on?"✓ ":""}${esc(o)}<small style="display:block;font-weight:600;opacity:.75">${esc(info(o))}</small></button>`}).join("");
-  const sinR=recN.filter(n=>!sel.some(x=>norm(x)===norm(n)));const sinAll=sel.some(x=>norm(x)==="sin salsa");
-  $("#slTxt",s).innerHTML=sinAll?`<b style="color:var(--red-ink)">SIN SALSA</b>`:(sel.length?`<b>Lleva:</b> ${esc(sel.join(", "))}`:"Ninguna marcada.")+(sinR.length&&!sinAll?` · <b style="color:var(--red-ink)">SIN ${esc(sinR.join(", "))}</b>`:"")};draw();
- $("#sl",s).onclick=e=>{const b=e.target.closest("[data-s]");if(!b)return;const v=b.dataset.s;sel=sel.filter(x=>norm(x)!=="sin salsa");if(sel.some(x=>norm(x)===norm(v)))sel=sel.filter(x=>norm(x)!==norm(v));else sel=[...sel,v];draw()};
+  const sinR=recN.filter(n=>!sel.some(x=>norm(x)===norm(n))).map(n=>{const g=grupoDe(n);return g?grupoTxt(g):n});const sinAll=sel.some(x=>norm(x)==="sin salsa");
+  $("#slTxt",s).innerHTML=sinAll?`<b style="color:var(--red-ink)">SIN SALSA</b>`:(sel.length?`<b>Lleva:</b> ${esc(salsasTxt(sel))}`:"Ninguna marcada.")+(sinR.length&&!sinAll?` · <b style="color:var(--red-ink)">SIN ${esc(sinR.join(", "))}</b>`:"")};draw();
+ $("#sl",s).onclick=e=>{const b=e.target.closest("[data-s]");if(!b)return;const v=b.dataset.s;sel=sel.filter(x=>norm(x)!=="sin salsa");if(sel.some(x=>norm(x)===norm(v)))sel=sel.filter(x=>norm(x)!==norm(v));else{const g=grupoDe(v);if(g){const M=g.iids.map(id=>ins(id)).filter(Boolean).map(salsaNom);sel=sel.filter(x=>!M.some(m=>norm(m)===norm(x)))}else{sel=sel.filter(x=>{const gg=grupoDe(x);return !(gg&&gg.iids.some(id=>ins(id)&&salsaMatch(ins(id),v)))})}sel=[...sel,v]}draw()};
  if($("#recS",s))$("#recS",s).onclick=()=>{sel=[...recN];draw()};
+ $("#newSal",s).onclick=()=>{const keep=[...sel];mNuevaSalsa(nom=>{l.salsas=[...keep,nom];mSalsas(i)})};
  const apply=list=>{const otra=$("#otraS",s).value.trim();list=[...new Set([...(list||[]),...(otra?[otra]:[])])];if(list.length>1)list=list.filter(x=>norm(x)!=="sin salsa");
   if(!list.length&&rs.length)list=["Sin salsa"];
   const same=rs.length&&!otra&&list.length===recN.length&&recN.every(n=>list.some(x=>norm(x)===norm(n)));if(same)list=[];
@@ -1399,6 +1408,35 @@ function pistas(date,diff){const c=calcDay(date),a=Math.abs(diff),out=[],eq=v=>M
  if(!out.length&&a<=1000)out.push("Es una diferencia pequeña: puede ser un error al dar vueltas.");
  if(!out.length)out.push("Revisa que cada pedido tenga la forma de pago correcta y que los gastos pagados en efectivo estén registrados.");
  return [...new Set(out)].slice(0,4)}
+function arreglarOrt(){let n=0;const fx=o=>{if(o&&/cacer/i.test(o.name||"")){o.name=fixOrt(o.name);o.upd=Date.now();n++;return true}return false};
+ const ci=S.insumos.map(fx).some(Boolean),cp=S.products.map(fx).some(Boolean);if(ci)saveCatalog("ins");if(cp)saveCatalog("prod");
+ let cc=false;const c=cfg();if(esAdmin()&&(c.salsas||[]).some(x=>/cacer/i.test(x))){S.cfg={...c,salsas:c.salsas.map(fixOrt)};cc=true;n++}
+ if((c.salsaGrupos||[]).some(g=>/cacer/i.test(g.n||""))){S.cfg={...cfg(),salsaGrupos:c.salsaGrupos.map(g=>({...g,n:fixOrt(g.n)}))};cc=true;n++}if(cc)saveCfg();
+ if(n)toast(`Corregí la ortografía: "Caceras" → "Caseras" (${n})`)}
+function mNuevaSalsa(onDone){
+ openModal("🥫 Nueva salsa",`<form class="stack" id="ns"><p class="small muted" style="margin:0">Queda como insumo de salsa: aparece de una vez en la ventana de Salsas al vender, se descuenta del inventario y sale en la comanda.</p>
+  <label class="f"><span class="label">Sabor</span><input id="ns_n" required placeholder="Ej. Maracuyá, Chipotle, Mostaza miel" autocomplete="off"></label><div id="ns_w" class="small"></div>
+  <div class="fgrid"><label class="f"><span class="label">Se mide en</span><select id="ns_u"><option value="g">Gramos</option><option value="ml">Mililitros</option></select></label>
+  ${nivel()>=2?`<label class="f"><span class="label">Porción por pedido</span><input id="ns_p" inputmode="decimal" placeholder="Ej. 20"></label>`:""}</div>
+  <label class="f"><span class="label">¿Cuánto hay ahora? (opcional)</span><input id="ns_s" inputmode="decimal" placeholder="Ej. 2000 (en la misma unidad)"></label>
+  <button class="btn big">Crear salsa</button><button type="button" class="btn ghost" data-a="closeModal">Cancelar</button></form>`,sh=>{
+  setTimeout(()=>$("#ns_n",sh)&&$("#ns_n",sh).focus(),60);
+  $("#ns",sh).onsubmit=e=>{e.preventDefault();let n=fixOrt($("#ns_n",sh).value.trim().replace(/\s+/g," ")).replace(/^salsas?\s+(de\s+)?/i,"");if(!n)return;n=n.charAt(0).toUpperCase()+n.slice(1);
+   const nombre="Salsa "+n.charAt(0).toLowerCase()+n.slice(1);const ya=S.insumos.find(i=>esSalsaIns(i)&&salsaMatch(i,n));
+   if(ya){if(ya.activo===false&&nivel()>=2){ya.activo=true;ya.upd=Date.now();saveCatalog("ins");closeModal();toast("Esa salsa ya existía y quedó activa otra vez");if(onDone)onDone(salsaNom(ya));return}return $("#ns_w",sh).innerHTML=`<span class="chip warn">Ya existe «${esc(ya.name)}».</span>`}
+   const i={id:uid("i"),name:nombre,unit:$("#ns_u",sh).value,stockIni:0,min:0,activo:true,upd:Date.now()};S.insumos.push(i);saveCatalog("ins");
+   const ini=num($("#ns_s",sh).value);if(ini>0){const k=uid("k");dayUpdate(S.date,{conteos:{[k]:{id:k,ts:Date.now(),iid:i.id,name:i.name,sistema:0,real:ini,nota:"Salsa nueva: cantidad inicial"}}})}
+   const p=$("#ns_p",sh)?num($("#ns_p",sh).value):0;const c=cfg();let ch=false;const IC={...(c.insCat||{})};if(catAutoIns(i)!=="Salsas"&&nivel()>=2){IC[i.id]="Salsas";ch=true}const SP={...(c.salsaPor||{})};if(p>0){SP[i.id]=p;ch=true}
+   if(ch){S.cfg={...c,insCat:IC,salsaPor:SP};saveCfg()}
+   closeModal();toast("Salsa creada: "+salsaNom(i));if(onDone)onDone(salsaNom(i))}})}
+function mSalsaGrupos(){let G=clone(salsaGrupos()).map(g=>({n:fixOrt(g.n),iids:[...g.iids]}));const L=salsaIns();
+ openModal("🥫 Combinaciones de salsas",`<div class="stack"><p class="small muted" style="margin:0">Una combinación es un nombre que trae varias salsas. Ej.: <b>Caseras = Ajo + Verde</b>. Al vender, tocar "Caseras" descuenta ajo y verde del inventario y en cocina sale "Caseras (Ajo + Verde)".</p><div id="sg" class="stack" style="gap:12px"></div>
+  <button class="btn sec" id="sgAdd">+ Nueva combinación</button><button class="btn big" id="sgOk">Guardar</button></div>`,sh=>{
+  const draw=()=>{$("#sg",sh).innerHTML=G.map((g,k)=>`<div class="stack" style="gap:6px;border:1.5px solid var(--line);border-radius:12px;padding:10px"><div class="row" style="flex-wrap:nowrap;gap:6px"><input data-gn="${k}" value="${esc(g.n)}" placeholder="Nombre (ej. Caseras)" style="flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:9px 11px"><button type="button" class="iconbtn" data-gd="${k}" aria-label="Quitar">✕</button></div><div class="schips">${L.map(i=>`<button type="button" class="schip" data-gk="${k}" data-gi="${i.id}" aria-pressed="${g.iids.includes(i.id)}">${g.iids.includes(i.id)?"✓ ":""}${esc(salsaNom(i))}</button>`).join("")||`<span class="small muted">No hay insumos de salsa.</span>`}</div></div>`).join("")||`<div class="empty">Sin combinaciones.</div>`};draw();
+  $("#sg",sh).oninput=e=>{const t=e.target;if(t.dataset.gn!=null)G[+t.dataset.gn].n=t.value};
+  $("#sg",sh).onclick=e=>{const d=e.target.closest("[data-gd]");if(d){G.splice(+d.dataset.gd,1);draw();return}const b=e.target.closest("[data-gi]");if(b){const g=G[+b.dataset.gk],id=b.dataset.gi;g.iids=g.iids.includes(id)?g.iids.filter(x=>x!==id):[...g.iids,id];draw()}};
+  $("#sgAdd",sh).onclick=()=>{G.push({n:"",iids:[]});draw()};
+  $("#sgOk",sh).onclick=()=>{const V=G.map(g=>({n:fixOrt(String(g.n||"").trim()),iids:g.iids})).filter(g=>g.n&&g.iids.length);S.cfg={...cfg(),salsaGrupos:V};saveCfg();closeModal();toast("Combinaciones guardadas")}})}
 function mExtras(){const X={...(S.cartExtras||{})};const re=/servillet|cubiert|tenedor|cuchar|pitillo|vaso|bolsa|sobre|sachet|palillo|guante|empaque|icopor|aluminio|salsa/;
  const base=S.insumos.filter(i=>i.activo!==false&&(esEmpaque(i)||re.test(norm(i.name)))).sort((a,b)=>a.name.localeCompare(b.name,"es"));let extraIds=Object.keys(X).filter(k=>!base.some(i=>i.id===k));
  openModal("🍴 Extras sin cobrar",`<div class="stack"><p class="small muted" style="margin:0">Lo que pidió de más y no se cobra (servilleta, cubierto, salsa…). Se descuenta del inventario y queda anotado en el pedido.</p><div class="list" id="ex_l"></div>
@@ -1485,9 +1523,9 @@ function ticketHTML(s,kind){const c=cfg(),N=c.negocio||{},dom=(s.tipo||(+s.domic
   ${dom?`<div>Dirección: <b>${esc(s.direccion||"—")}</b></div>${s.telefono?`<div>Tel: <b>${esc(s.telefono)}</b></div>`:""}`:""}<hr>`;
  if(kind==="nuevo"){const r=Math.max(...(s.items||[]).map(i=>+i.ronda||1));s={...s,items:(s.items||[]).filter(i=>(+i.ronda||1)===r),_nuevo:true};kind="cocina"}
  if(kind==="cocina")return `<div class="xl c">${s._nuevo?"AGREGAR A":"COCINA"} #${s.num||"—"}</div><div class="c">${esc(s.hora||"")} · <b>${esc(tipoTxt(s))}</b>${s.cliente?" · "+esc(s.cliente):""}</div><hr>
-  ${(s.items||[]).map(i=>`<div style="font-size:15px"><b>${trimN(i.qty)} x ${esc(i.name)}</b></div>${(i.salsas||[]).length?`<div class="b">&nbsp;&nbsp;SALSAS: ${esc(i.salsas.join(", "))}</div>`:""}${salsaSinTxt(i)&&!(i.salsas||[]).some(x=>norm(x)==="sin salsa")?`<div class="b">&nbsp;&nbsp;SIN SALSA: ${esc(salsaSinTxt(i))}</div>`:""}${(i.sin||[]).length?`<div class="b">&nbsp;&nbsp;SIN: ${esc(sinTxt(i))}</div>`:""}${(i.extra||[]).length?`<div class="b">&nbsp;&nbsp;EN CAMBIO: ${esc(extTxt(i))}</div>`:""}`).join("")}
+  ${(s.items||[]).map(i=>`<div style="font-size:15px"><b>${trimN(i.qty)} x ${esc(i.name)}</b></div>${(i.salsas||[]).length?`<div class="b">&nbsp;&nbsp;SALSAS: ${esc(salsasTxt(i.salsas))}</div>`:""}${salsaSinTxt(i)&&!(i.salsas||[]).some(x=>norm(x)==="sin salsa")?`<div class="b">&nbsp;&nbsp;SIN SALSA: ${esc(salsaSinTxt(i))}</div>`:""}${(i.sin||[]).length?`<div class="b">&nbsp;&nbsp;SIN: ${esc(sinTxt(i))}</div>`:""}${(i.extra||[]).length?`<div class="b">&nbsp;&nbsp;EN CAMBIO: ${esc(extTxt(i))}</div>`:""}`).join("")}
   ${s.nota?`<hr><div class="b" style="font-size:14px">NOTA: ${esc(s.nota)}</div>`:""}<hr><div class="c">.</div>`;
- const rows=(s.items||[]).map(i=>`<tr><td>${trimN(i.qty)} ${esc(i.name)}${(i.salsas||[]).length?`<br><small>(${esc(i.salsas.join(", "))})</small>`:""}</td><td class="r">${money((+i.qty||0)*(+i.price||0))}</td></tr>`).join("");
+ const rows=(s.items||[]).map(i=>`<tr><td>${trimN(i.qty)} ${esc(i.name)}${(i.salsas||[]).length?`<br><small>(${esc(salsasTxt(i.salsas))})</small>`:""}</td><td class="r">${money((+i.qty||0)*(+i.price||0))}</td></tr>`).join("");
  const sub=+s.subtotal||0,tot=+s.total||0,d=+s.domicilio||0,desc=sub-tot;
  const pago=isPaid(s)?pagoTxt(s):(dom?"PAGA CONTRA ENTREGA":"PENDIENTE DE PAGO");
  return head+info+`<table>${rows}<tr><td colspan="2"><hr></td></tr><tr><td>Subtotal</td><td class="r">${money(sub)}</td></tr>${desc>0?`<tr><td>Descuento</td><td class="r">-${money(desc)}</td></tr>`:desc<0?`<tr><td>Recargo</td><td class="r">${money(-desc)}</td></tr>`:""}${d?`<tr><td>Domicilio</td><td class="r">${money(d)}</td></tr>`:""}
@@ -1504,7 +1542,7 @@ function mPrint(date,id,titulo,nuevo){const s=S.days[date]?.sales?.[id];if(!s)re
 function ticketText(s){const N=cfg().negocio||{},dom=(s.tipo||(+s.domicilio>0?"domicilio":""))==="domicilio";const L=[];
  L.push(`*${N.nombre||"Aquí Fue"}*`);if(N.nit)L.push(`NIT/CC ${N.nit}`);if(N.dir)L.push(N.dir);if(N.tel)L.push(`Tel ${N.tel}`);L.push("");
  L.push(`*Pedido #${s.num||"—"}* · ${s.date?fDate(s.date,true):""} ${s.hora||""}`);L.push(tipoTxt(s)+(s.cliente?` · ${s.cliente}`:""));if(dom&&s.direccion)L.push(`Dirección: ${s.direccion}`);L.push("");
- (s.items||[]).forEach(i=>{L.push(`${trimN(i.qty)} x ${i.name}  ${money((+i.qty||0)*(+i.price||0))}`);if((i.salsas||[]).length)L.push(`   Salsas: ${i.salsas.join(", ")}`);if(salsaSinTxt(i)&&!(i.salsas||[]).some(x=>norm(x)==="sin salsa"))L.push(`   Sin salsa: ${salsaSinTxt(i)}`);if((i.sin||[]).length)L.push(`   Sin: ${sinTxt(i)}`);if((i.extra||[]).length)L.push(`   En cambio: ${extTxt(i)}`)});
+ (s.items||[]).forEach(i=>{L.push(`${trimN(i.qty)} x ${i.name}  ${money((+i.qty||0)*(+i.price||0))}`);if((i.salsas||[]).length)L.push(`   Salsas: ${salsasTxt(i.salsas)}`);if(salsaSinTxt(i)&&!(i.salsas||[]).some(x=>norm(x)==="sin salsa"))L.push(`   Sin salsa: ${salsaSinTxt(i)}`);if((i.sin||[]).length)L.push(`   Sin: ${sinTxt(i)}`);if((i.extra||[]).length)L.push(`   En cambio: ${extTxt(i)}`)});
  const sub=+s.subtotal||0,tot=+s.total||0,d=+s.domicilio||0;L.push("");L.push(`Subtotal: ${money(sub)}`);if(sub-tot>0)L.push(`Descuento: -${money(sub-tot)}`);if(d)L.push(`Domicilio: ${money(d)}`);
  L.push(`*TOTAL: ${money(cobro(s))}*`);L.push(isPaid(s)?`Pago: ${pagoTxt(s)}`:(dom?"Paga contra entrega":"Pendiente de pago"));if(s.nota)L.push(`Nota: ${s.nota}`);
  L.push("");if(N.pie)L.push(N.pie);L.push("_Comprobante de pedido · no es factura electrónica_");return L.join("\n")}
@@ -1847,6 +1885,8 @@ document.addEventListener("click",e=>{const vr=e.target.closest("[data-vresto]")
   case "masO":S.masO=S.masO||{};S.masO[id]=!S.masO[id];render();break;
   case "asisBeb":mAsisBebidas();break;
   case "extras":mExtras();break;
+  case "salsaGr":mSalsaGrupos();break;
+  case "nuevaSalsa":mNuevaSalsa();break;
   case "reabrirV":mReabrir(S.date,"ventas");break;
   case "audDia":mAuditoria(v);break;
   case "goDeudas":S.view="pedidos";S.pf="deudas";LS.set("aquifue_pf","deudas");render();scrollTo(0,0);break;
