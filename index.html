@@ -413,7 +413,7 @@ const catIns=i=>(cfg().insCat||{})[i.id]||catAutoIns(i);
 const icoICat=n=>(ICATS.find(c=>c[0]===n)||[0,"🔹"])[1];
 const ordICat=n=>{const k=ICATS.findIndex(c=>c[0]===n);return k<0?(n==="Otros"?99:50):k};
 const hit=(txt,q)=>!q||fuzzy(norm(txt||""),q);
-const VERSION_TXT="30-oct-2026 · 7:55 pm";
+const VERSION_TXT="30-oct-2026 · 9:40 pm";
 const NIV={empleado:1,supervisor:2,admin:3},ROLTXT={admin:"Admin",supervisor:"Supervisor",empleado:"Empleado"};
 const rol=()=>(S.yo&&S.yo.rol)||"admin",nivel=()=>NIV[rol()]||1,esAdmin=()=>rol()==="admin",esEmp=()=>rol()==="empleado";
 const permEmp=k=>!esEmp()||!!(cfg().permEmp||{})[k];
@@ -2067,7 +2067,7 @@ document.addEventListener("click",e=>{const vr=e.target.closest("[data-vresto]")
   case "print":mPrint(v,id);break;
   case "toggleO":{const cur=$(`[data-a=toggleO][data-id="${id}"]`).getAttribute("aria-expanded")==="true";S.openO[id]=!cur;render();break}
   case "fold":{const cur=t.getAttribute("aria-expanded")==="true";S.fold[v]=!cur;render();break}
-  case "tipo":S.tipo=v;if(v!=="local")S.mesa="";if(v!=="domicilio"&&S.pay==="despues"){}render();break;
+  case "tipo":if(S.tipo!==v){S.tel="";S.dir="";S.ref="";S.cli=null;S.cliUpd=false;S.telAdd=false;S.cliAsked=false;if(v!=="domicilio")S.dom=""}S.tipo=v;if(v!=="local")S.mesa="";if(v!=="domicilio"&&S.pay==="despues"){}render();break;
   case "mesa":S.mesa=S.mesa===v?"":v;render();break;
   case "compraDe":mCompraLista("Registrar compra",id);break;
   case "entregado":{const s=S.days[v]?.sales?.[id];if(s&&s.noPaga&&!isPaid(s)){delete S.openO[id];dayUpdate(v,{sales:{[id]:noPagaPatch(s)}});toast(s.npTipo==="empleado"?"Entregado · comida de empleado":"Entregado · pasa a lista de espera (no paga)")}else if(s&&!isPaid(s))mCobrar(v,id,true);else{delete S.openO[id];dayUpdate(v,{sales:{[id]:{estado:"listo",listoTs:Date.now()}}});toast("Pedido entregado")}break}
@@ -2203,7 +2203,7 @@ function sell(force,aceptaDif,pagoOk){if(S.anexo)return anexarVenta();if(bloquea
   const ya=comidasEmp(S.date).filter(x=>wid==="otro"?norm(x.npQuien||"")===norm(nom):x.npWid===wid);if(ya.length){if(nivel()<2)return toast(nom+" ya registró su comida de este turno (pedido #"+(ya[0].num||"")+"). Solo un supervisor o Admin puede registrar otra.",true);if(!confirm(nom+" ya comió en este turno (pedido #"+(ya[0].num||"")+"). ¿Registrar otra comida?"))return}NP={npTipo:"empleado",npWid:wid,npQuien:nom}}
  if(!NP&&S.tipo==="domicilio"&&telN(S.tel).length<7){S.cartOpen=true;render();setTimeout(()=>{const t=$("#tel");if(t)t.focus()},80);return toast("El teléfono es obligatorio para los domicilios.",true)}
  if(!NP&&(S.tipo==="domicilio"||S.tipo==="recoger")&&!S.cli){const t=telN(S.tel);const ex=t.length>=7?(S.clientes||[]).find(c=>(c.tels||[]).includes(t)):null;
-  if(ex){S.cli=ex.id;S.cliAsked=true}else if(!S.cliAsked){const sim=cliSimilares();if(sim.length){const c=sim[0];
+  if(ex){S.cli=ex.id;S.cliAsked=true}else if(!S.cliAsked&&t.length>=7){const sim=cliSimilares();if(sim.length){const c=sim[0];
    openModal("¿Es un cliente que ya existe?",`<div class="stack"><p style="margin:0">Hay un cliente parecido:</p><div class="li" style="border:1.5px solid var(--line);border-radius:10px;padding:8px 10px"><div class="grow"><div class="t">${esc(c.nombre)}</div><div class="small muted">${esc([(c.tels||[]).map(telFmt).join(" · "),c.dir].filter(Boolean).join(" · "))}</div></div></div>
     ${t.length>=7?`<button class="btn big" id="simAdd">Sí, es esta persona: agregar el ${esc(telFmt(t))} a su perfil</button><button class="btn sec" id="simUna">Sí, pero ese número es solo por esta vez</button>`:`<button class="btn big" id="simUna">Sí, es esta persona</button>`}<button class="btn ghost" id="simNo">No, es otro cliente</button></div>`,sh=>{
     const go=add=>{S.cli=c.id;S.cliAsked=true;S.telAdd=!!add;S.cliUpd=false;closeModal();sell(force,aceptaDif,pagoOk)};
