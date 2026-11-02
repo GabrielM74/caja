@@ -413,7 +413,7 @@ const catIns=i=>(cfg().insCat||{})[i.id]||catAutoIns(i);
 const icoICat=n=>(ICATS.find(c=>c[0]===n)||[0,"🔹"])[1];
 const ordICat=n=>{const k=ICATS.findIndex(c=>c[0]===n);return k<0?(n==="Otros"?99:50):k};
 const hit=(txt,q)=>!q||fuzzy(norm(txt||""),q);
-const VERSION_TXT="01-nov-2026 · 8:30 pm";
+const VERSION_TXT="01-nov-2026 · 8:40 pm";
 const NIV={empleado:1,supervisor:2,admin:3},ROLTXT={admin:"Admin",supervisor:"Supervisor",empleado:"Empleado"};
 const rol=()=>(S.yo&&S.yo.rol)||"admin",nivel=()=>NIV[rol()]||1,esAdmin=()=>rol()==="admin",esEmp=()=>rol()==="empleado";
 const permEmp=k=>!esEmp()||!!(cfg().permEmp||{})[k];
@@ -505,7 +505,8 @@ function salsaGrupos(){const G=cfg().salsaGrupos;if(Array.isArray(G))return G.fi
 const grupoDe=x=>salsaGrupos().find(g=>norm(fixOrt(g.n))===norm(fixOrt(x)));
 const grupoTxt=g=>g.iids.map(id=>ins(id)).filter(Boolean).map(salsaNom).join(" + ");
 const salsasTxt=L=>(L||[]).map(x=>{const g=grupoDe(x);return g?`${fixOrt(g.n)} (${grupoTxt(g)})`:fixOrt(x)}).join(", ");
-function salsaOpts(pid){const L=[];salsaGrupos().forEach(g=>L.push(fixOrt(g.n)));recSalsas(pid).forEach(r=>L.push(salsaNom(ins(r.iid))));salsaIns().forEach(i=>L.push(salsaNom(i)));(cfg().salsas||[]).map(fixOrt).forEach(x=>{if(!L.some(y=>norm(y)===norm(x))&&!S.insumos.some(i=>esSalsaIns(i)&&salsaMatch(i,x)))L.push(x)});const seen=new Set();return L.filter(x=>{const k=norm(x);if(!x||seen.has(k))return false;seen.add(k);return true})}
+const sinGrupos=L=>{const o=[];(L||[]).forEach(x=>{const g=grupoDe(x);if(g)g.iids.forEach(id=>{const i=ins(id);if(i)o.push(salsaNom(i))});else o.push(x)});return[...new Set(o)]};
+function salsaOpts(pid){const L=[];recSalsas(pid).forEach(r=>L.push(salsaNom(ins(r.iid))));salsaIns().forEach(i=>L.push(salsaNom(i)));(cfg().salsas||[]).map(fixOrt).filter(x=>!/caser/.test(norm(x))).forEach(x=>{if(!L.some(y=>norm(y)===norm(x))&&!S.insumos.some(i=>esSalsaIns(i)&&salsaMatch(i,x)))L.push(x)});const seen=new Set();return L.filter(x=>{const k=norm(x);if(!x||seen.has(k))return false;seen.add(k);return true})}
 function salsaSinTxt(it){if(!it||!it.pid)return "";const sf=salsaFiltro(it.salsas);if(!sf)return "";return recSalsas(it.pid).filter(r=>sf.sin||!sf.sel.some(sv=>salsaMatch(ins(r.iid),sv))).map(r=>salsaNom(ins(r.iid))).join(", ")}
 function salsaFiltro(salsas){const L=[];(salsas||[]).filter(Boolean).forEach(x=>{const g=grupoDe(x);if(g)g.iids.forEach(id=>{const i=ins(id);if(i)L.push(salsaNom(i))});else L.push(x)});if(!L.length)return null;if(L.some(x=>norm(x)==="sin salsa"))return {sin:true,sel:[]};const known=L.filter(x=>(cfg().salsas||[]).some(k=>norm(k)===norm(x))||S.insumos.some(i=>esSalsaIns(i)&&salsaMatch(i,x)));return known.length?{sin:false,sel:known}:null}
 function expand(pid,qty,acc,depth=0,opt){const p=prod(pid);if(!p||depth>4)return;const sin=opt&&opt.sin,local=opt&&opt.local;const sf=opt&&opt.salsas?salsaFiltro(opt.salsas):null;
@@ -878,7 +879,7 @@ function vCat(){
   }else{const G={};S.insumos.filter(i=>hit(i.name,cq)||hit(catIns(i),cq)).forEach(i=>{const c=catIns(i);(G[c]=G[c]||[]).push(i)});
    body=Object.keys(G).sort((a,b)=>ordICat(a)-ordICat(b)||a.localeCompare(b,"es")).map(c=>`<section class="card stack"><h3>${icoICat(c)} ${esc(c)} <span class="chip gray">${G[c].length}</span></h3><div class="list">${G[c].sort((a,b)=>a.name.localeCompare(b.name,"es")).map(i=>`<div class="li"><div class="grow"><div class="t">${esc(i.name)} ${i.activo===false?`<span class="chip gray">Oculto</span>`:""}</div><div class="small muted">Se mide en ${i.unit==="unidad"?"unidades":i.unit}${presList(i).length?` · se compra por ${esc(presList(i).map(p=>p.n+" ("+fmtQ(p.q,i.unit)+")").join(", "))}`:""}${esEmpaque(i)?" · empaque para llevar":""} · inicial ${fmtQ(i.stockIni,i.unit)} · mínimo ${fmtQ(i.min,i.unit)}</div></div><button class="btn ghost" data-a="editI" data-id="${i.id}">Editar</button></div>`).join("")}</div></section>`).join("")||`<div class="empty">${cq?`Ningún insumo coincide con “${esc(S.cq)}”.`:"Sin insumos."}</div>`}
   return `<div class="stack"><div class="row between"><div class="seg"><button data-a="catTab" data-v="productos" aria-pressed="${t==="productos"}">Productos del menú</button><button data-a="catTab" data-v="insumos" aria-pressed="${t==="insumos"}">Insumos</button></div>
-  ${t==="productos"?`<button class="btn sec" data-a="asisBeb">🥤 Asistente de bebidas</button>`:`<button class="btn sec" data-a="nuevaSalsa">🥫 + Nueva salsa</button><button class="btn sec" data-a="salsaGr">🥫 Combinaciones de salsas</button>`}<button class="btn" data-a="${t==="productos"?"editP":"editI"}">+ ${t==="productos"?"Nuevo producto":"Nuevo insumo"}</button></div>
+  ${t==="productos"?`<button class="btn sec" data-a="asisBeb">🥤 Asistente de bebidas</button>`:`<button class="btn sec" data-a="nuevaSalsa">🥫 + Nueva salsa</button>`}<button class="btn" data-a="${t==="productos"?"editP":"editI"}">+ ${t==="productos"?"Nuevo producto":"Nuevo insumo"}</button></div>
   <div class="isearch"><span aria-hidden="true">🔎</span><input id="cq" placeholder="${t==="productos"?"Buscar producto o sabor":"Buscar insumo o categoría"}" value="${esc(S.cq||"")}" autocomplete="off">${S.cq?`<button data-a="cqClear" aria-label="Borrar búsqueda">✕</button>`:""}</div>
   <p class="small muted">Los nombres solo se escriben aquí. En las ventas y compras se escogen de la lista, así nunca quedan mal escritos.</p>${body}</div>`;
 }
@@ -1105,15 +1106,14 @@ function mRevender(date,id){const o=S.days[date]?.sales?.[id];if(!o)return;if(bl
    const d=S.date;if(d===date){dayUpdate(d,{sales:{[nid]:sale,[id]:{estado:"revendida",revendidaEn:d}}})}else{dayUpdate(d,{sales:{[nid]:sale}});dayUpdate(date,{sales:{[id]:{estado:"revendida",revendidaEn:d}}})}
    closeModal();toast(`Vendido · ${money(precio)}`)}})}
 function mSalsas(i){const l=S.cart[i];const opts=salsaOpts(l.pid);const rs=recSalsas(l.pid);let recN=rs.map(r=>salsaNom(ins(r.iid)));
- salsaGrupos().forEach(g=>{const M=g.iids.map(id=>ins(id)).filter(Boolean).map(salsaNom);if(M.length&&M.every(m=>recN.some(x=>norm(x)===norm(m)))){recN=recN.filter(x=>!M.some(m=>norm(m)===norm(x)));recN.unshift(fixOrt(g.n))}});
- let sel=(l.salsas||[]).length?[...l.salsas]:[...recN];
+ let sel=(l.salsas||[]).length?sinGrupos(l.salsas):[...recN];
  const info=n=>{const g=grupoDe(n);if(g)return grupoTxt(g);const r=rs.find(x=>salsaMatch(ins(x.iid),n));if(r)return fmtQ(r.qty,ins(r.iid).unit)+" · receta";const it=S.insumos.find(x=>x.activo!==false&&esSalsaIns(x)&&salsaMatch(x,n));if(!it)return "solo nota";const q=+((cfg().salsaPor||{})[it.id])||(rs.length?rs.reduce((a,r)=>a+(+r.qty||0),0)/rs.length:0);return q>0?fmtQ(q,it.unit):"no descuenta"};
  openModal("🥫 Salsas · "+l.name,`<div class="stack">${opts.length?"":`<div class="banner">Aún no hay salsas. Créalas como insumos (categoría Salsas) o escríbelas en Ajustes.</div>`}
  ${rs.length?`<p class="small muted" style="margin:0">Vienen marcadas las de la receta. <b>Desmarca</b> la que no quiera (ej. sin piña) o marca otras. Solo las marcadas se descuentan del inventario y cocina ve la combinación.</p>`:`<p class="small muted" style="margin:0">Las marcadas se descuentan del inventario y salen en la comanda.</p>`}
- <div class="schips" id="sl"></div><div class="small" id="slTxt"></div>${salsaGrupos().length?`<p class="small muted" style="margin:0">${esc(salsaGrupos().map(g=>fixOrt(g.n)+" = "+grupoTxt(g)).join(" · "))}</p>`:""}
+ <div class="schips" id="sl"></div><div class="small" id="slTxt"></div>
  <label class="f"><span class="label">Otra indicación (opcional)</span><input id="otraS" placeholder="Ej. salsas aparte, poquita rosada"></label>
  ${l.qty>1?`<label class="row"><input type="checkbox" id="soloUno"> Solo para 1 de los ${l.qty} (los demás quedan aparte)</label>`:""}
- <button type="button" class="btn ghost" id="newSal" style="align-self:flex-start">+ Nueva salsa</button>
+ <button type="button" class="btn sec" id="newSal">🥫 + Nueva salsa</button>
  <div class="row"><button class="btn sec" id="sinS">Sin salsa</button>${rs.length?`<button class="btn ghost" id="recS">Como la receta</button>`:""}<button class="btn" id="okS" style="flex:1">Listo</button></div></div>`,s=>{
  const draw=()=>{const extra=sel.filter(x=>!opts.some(o=>norm(o)===norm(x))&&norm(x)!=="sin salsa");$("#sl",s).innerHTML=[...opts,...extra].map(o=>{const on=sel.some(x=>norm(x)===norm(o));return `<button type="button" class="schip" data-s="${esc(o)}" aria-pressed="${on}">${on?"✓ ":""}${esc(o)}<small style="display:block;font-weight:600;opacity:.75">${esc(info(o))}</small></button>`}).join("");
   const sinR=recN.filter(n=>!sel.some(x=>norm(x)===norm(n))).map(n=>{const g=grupoDe(n);return g?grupoTxt(g):n});const sinAll=sel.some(x=>norm(x)==="sin salsa");
@@ -1465,7 +1465,7 @@ function cliCardHTML(){if(S.anexo||!(S.tipo==="domicilio"||S.tipo==="recoger"))r
  return `<div class="stack" style="gap:4px"><span class="label">👤 ¿Es alguno de estos clientes?</span>${L.map(({c,r})=>`<button class="li" data-a="cliPick" data-id="${c.id}" style="text-align:left;width:100%;border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card,#fff)"><div class="grow"><div class="t">${esc(c.nombre||"Cliente")} <span class="small muted">${esc((c.tels||[]).map(telFmt).join(" · "))}</span></div><div class="small muted">${esc(c.dir||"")}${r.n?` · ${r.n} ${r.n===1?"pedido":"pedidos"}`:""}</div></div></button>`).join("")}</div>`}
 function cliRepetir(){const c=cliById(S.cli);const last=cliResumen(c).last;if(!last)return;let falta=0;const L=[];
  (last.items||[]).forEach(i=>{const p=prod(i.pid);if(!p||p.activo===false){falta++;return}let price=+p.price||0;if(i.oiid){const o=opcDe(p.id).find(o=>o.iid===i.oiid);if(!o){falta++;return}price=oPrecio(p,o)}
-  L.push({pid:i.pid,name:i.oiid?`${p.name} (${i.opc||""})`:p.name,price,qty:+i.qty||1,...(i.oiid?{oiid:i.oiid,opc:i.opc}:{}),...((i.salsas||[]).length?{salsas:[...i.salsas]}:{}),...((i.sin||[]).length?{sin:[...i.sin]}:{}),...((i.extra||[]).length?{extra:clone(i.extra)}:{}),...((i.con||[]).length?{con:[...i.con]}:{})})});
+  L.push({pid:i.pid,name:i.oiid?`${p.name} (${i.opc||""})`:p.name,price,qty:+i.qty||1,...(i.oiid?{oiid:i.oiid,opc:i.opc}:{}),...((i.salsas||[]).length?{salsas:sinGrupos(i.salsas)}:{}),...((i.sin||[]).length?{sin:[...i.sin]}:{}),...((i.extra||[]).length?{extra:clone(i.extra)}:{}),...((i.con||[]).length?{con:[...i.con]}:{})})});
  const go=()=>{S.cart=[...S.cart,...L];S.cartOpen=true;render();toast(`Agregado lo del pedido #${last.num||""} del ${fDate(last.date)}${falta?` (${falta} ${falta===1?"producto ya no existe":"productos ya no existen"})`:""}. Revísalo antes de registrar.`)};
  if(!L.length)return toast("Los productos de ese pedido ya no están en el menú.",true);if(S.cart.length)ask("Ya hay productos en el pedido. ¿Agregar también lo del último pedido?","Agregar",go,false);else go()}
 function cliImportables(){const usados=new Set();(S.clientes||[]).forEach(c=>cliVentas(c).forEach(x=>usados.add(x.id)));const G=new Map();const sinTel=[];
